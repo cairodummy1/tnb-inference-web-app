@@ -46,6 +46,15 @@ def test_explicit_cuda_fails_when_unavailable(monkeypatch):
         worker.resolve_device()
 
 
+def test_explicit_cuda_rejects_an_unsupported_architecture(monkeypatch):
+    monkeypatch.setenv("INFERENCE_DEVICE", "cuda")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda: (12, 0))
+    monkeypatch.setattr(torch.cuda, "get_arch_list", lambda: ["sm_90"])
+    with pytest.raises(RuntimeError, match="sm_120"):
+        worker.resolve_device()
+
+
 def test_detect_returns_json_safe_detection(monkeypatch, tmp_path):
     image_path = tmp_path / "sample.jpg"
     Image.new("RGB", (16, 12), "white").save(image_path)

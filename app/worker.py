@@ -29,6 +29,15 @@ def resolve_device() -> torch.device:
             "INFERENCE_DEVICE=cuda was requested, but CUDA is unavailable. "
             "Use the CPU Compose file or configure the NVIDIA Container Toolkit."
         )
+    if cuda_available:
+        major, minor = torch.cuda.get_device_capability()
+        required_arch = f"sm_{major}{minor}"
+        supported_arches = set(torch.cuda.get_arch_list())
+        if required_arch not in supported_arches and f"compute_{major}{minor}" not in supported_arches:
+            raise RuntimeError(
+                f"This PyTorch CUDA build does not support {required_arch}. "
+                "Rebuild with the current compose.gpu.yaml (CUDA 12.8 / PyTorch 2.7.1 or newer)."
+            )
     return torch.device("cuda" if cuda_available else "cpu")
 
 

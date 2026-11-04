@@ -26,7 +26,7 @@ The normal command is CPU-only and works on any supported Docker host. To use an
 docker compose -f compose.yaml -f compose.gpu.yaml up --build
 ```
 
-The GPU override builds only the worker with the CUDA 12.6 PyTorch wheel and assigns all host GPUs to it. The application supports `INFERENCE_DEVICE=cpu`, `cuda`, and `auto`; Compose sets `cpu` in the base stack and `cuda` in GPU mode. An explicit CUDA request fails with a clear worker error if Docker cannot access a GPU.
+The GPU override builds only the worker with PyTorch 2.7.1 and CUDA 12.8, which supports NVIDIA Blackwell GPUs such as the RTX 5090 (`sm_120`), and assigns all host GPUs to it. The application supports `INFERENCE_DEVICE=cpu`, `cuda`, and `auto`; Compose sets `cpu` in the base stack and `cuda` in GPU mode. An explicit CUDA request fails with a clear worker error if Docker cannot access a GPU or the installed wheel does not support the GPU architecture.
 
 ## API
 

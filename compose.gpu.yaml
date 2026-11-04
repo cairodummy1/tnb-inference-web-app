@@ -1,0 +1,10 @@
+# Opt-in NVIDIA GPU worker. Requires NVIDIA Container Toolkit on the Docker host.
+services:
+  worker:
+    image: simple-inference-worker-gpu
+    build:
+      args:
+        PYTORCH_WHEEL_CHANNEL: cu126
+    environment:
+      INFERENCE_DEVICE: cuda
+    gpus: all

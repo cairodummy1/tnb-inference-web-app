@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>COCO Object Detector</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="VisionLab home">
+          <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span>VisionLab</span>
+        </a>
+        <span class="model-badge"><i></i> COCO · SSDLite</span>
+      </header>
+
+      <section class="hero">
+        <div>
+          <p class="eyebrow">OBJECT DETECTION WORKSPACE</p>
+          <h1>See what your image<br><em>is made of.</em></h1>
+          <p class="intro">Upload a photo and let our PyTorch inference worker identify people, vehicles, animals, and everyday objects.</p>
+        </div>
+        <div class="hero-orb" aria-hidden="true"><span></span><span></span><span></span></div>
+      </section>
+
+      <section class="workspace" aria-label="Object detection workspace">
+        <form id="upload-form" class="upload-card">
+          <div class="card-heading">
+            <div class="step">01</div>
+            <div><h2>Choose an image</h2><p>JPEG, PNG, or WebP · up to 10 MB</p></div>
+          </div>
+          <label for="image" class="dropzone" id="dropzone">
+            <input id="image" name="image" type="file" accept="image/jpeg,image/png,image/webp" required>
+            <span class="upload-icon" aria-hidden="true">↑</span>
+            <strong>Drop your image here</strong>
+            <span>or <b>browse files</b> from your device</span>
+            <small id="file-name">No file selected</small>
+          </label>
+          <button type="submit" id="submit-button"><span>Run detection</span><b aria-hidden="true">→</b></button>
+        </form>
+
+        <aside class="info-card">
+          <div class="card-heading">
+            <div class="step">02</div>
+            <div><h2>How it works</h2><p>Fast, asynchronous inference</p></div>
+          </div>
+          <ol class="process-list">
+            <li><span>1</span><div><strong>Upload securely</strong><small>Your image is queued for processing.</small></div></li>
+            <li><span>2</span><div><strong>Model detects objects</strong><small>COCO-trained PyTorch model runs in the background.</small></div></li>
+            <li><span>3</span><div><strong>Review results</strong><small>Boxes, labels, and confidence scores are drawn here.</small></div></li>
+          </ol>
+        </aside>
+      </section>
+
+      <section class="status-panel" id="status-panel" data-state="idle" aria-live="polite">
+        <span class="status-dot"></span><p id="status">Ready when you are.</p><span class="status-detail">Inference queue online</span>
+      </section>
+
+      <section id="result" class="results" hidden>
+        <div class="result-heading"><div><p class="eyebrow">ANALYSIS COMPLETE</p><h2>Detection results</h2></div><span id="result-count" class="result-count"></span></div>
+        <div class="result-grid">
+          <div class="canvas-wrap"><canvas id="canvas"></canvas></div>
+          <aside class="detections-card"><h3>Found objects</h3><ul id="detections"></ul></aside>
+        </div>
+      </section>
+      <footer>Powered by FastAPI, Redis + RQ, and PyTorch</footer>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

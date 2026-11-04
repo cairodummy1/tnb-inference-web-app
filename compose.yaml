@@ -1,0 +1,68 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - ./data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    image: simple-inference-worker-cpu
+    build:
+      context: .
+      args:
+        PYTORCH_WHEEL_CHANNEL: cpu
+    command: python -m app.run_worker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /data/uploads
+      SCORE_THRESHOLD: "0.5"
+      INFERENCE_DEVICE: cpu
+      TORCH_HOME: /models
+      PYTORCH_NVML_BASED_CUDA_CHECK: "1"
+    volumes:
+      - ./data:/data
+      - torch-model-cache:/models
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'from app.queueing import has_inference_worker, redis_connection; raise SystemExit(0 if has_inference_worker(redis_connection()) else 1)'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  cleanup:
+    build: .
+    command: python -m app.cleanup
+    environment:
+      UPLOAD_DIR: /data/uploads
+      UPLOAD_RETENTION_SECONDS: "86400"
+      CLEANUP_INTERVAL_SECONDS: "3600"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  torch-model-cache:

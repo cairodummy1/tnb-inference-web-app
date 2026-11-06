@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>TNB Inference</title><link rel="icon" href="/public/favicon.ico" sizes="any"><link rel="apple-touch-icon" href="/public/icon.png"><link rel="stylesheet" href="/static/style.css">
+    <title>TNB Inference</title><link rel="icon" href="/public/favicon.ico" sizes="any"><link rel="apple-touch-icon" href="/public/icon.png"><link rel="stylesheet" href="/static/style.css?v=20261106-rq-coco">
   </head>
   <body><main class="app-shell">
     <header class="topbar"><a class="brand" href="/" aria-label="TNB Inference home"><img class="brand-logo" src="/public/logo.png" alt="Tenaga Nasional"><span class="brand-name">TNB Inference</span></a><span class="model-badge"><i></i> PyTorch vision + ANN</span></header>
@@ -22,5 +22,5 @@
       <div id="coco-unavailable" class="info-card"><h3>Dataset status</h3><p id="coco-status">Checking COCO import status…</p><button id="coco-start-import" type="button" hidden>Start full COCO import <b>→</b></button><div id="coco-download-progress" class="download-progress" hidden><div class="download-progress-label"><span id="coco-download-name"></span><span id="coco-download-percent"></span></div><progress id="coco-download-bar" max="100" value="0"></progress></div></div>
       <div id="coco-browser" hidden><div class="coco-controls"><label>Split <select id="coco-split"><option value="val2017">Validation</option><option value="train2017">Training</option></select></label><label>Category <select id="coco-category"><option value="">All categories</option></select></label><button id="coco-load" type="button">Browse images <b>→</b></button></div><div id="coco-thumbnails" class="coco-thumbnails"></div><div class="coco-pager"><button id="coco-previous" type="button" disabled>← Previous</button><button id="coco-next" type="button" disabled>Next →</button></div><div id="coco-detail" class="coco-detail" hidden><div class="coco-image-wrap"><img id="coco-image" alt="Selected COCO image"><canvas id="coco-canvas"></canvas></div><aside class="detections-card"><div class="coco-detail-heading"><h3 id="coco-image-title"></h3><button id="coco-toggle-boxes" type="button">Hide bounding boxes</button></div><p id="coco-image-meta"></p><ul id="coco-labels"></ul></aside></div></div>
     </section><footer>Powered by FastAPI, Redis + RQ, MongoDB, and PyTorch</footer>
-  </main><script src="/static/app.js"></script></body>
+  </main><script src="/static/app.js?v=20261106-rq-coco"></script></body>
 </html>

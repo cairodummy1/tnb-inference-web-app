@@ -73,8 +73,8 @@ button b { font-size: 1.2rem; }
 #detections { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
 #detections li { padding: 9px 10px; border: 1px solid #d3e2ed; border-radius: 8px; background: #f5faff; color: #315676; font-size: .76rem; }
 footer { padding-top: 32px; color: #71879c; text-align: center; font-size: .72rem; }
-.workflow-tabs { display: flex; gap: 6px; margin: 0 0 8px; padding: 6px; overflow-x: auto; border: 1px solid #d5e1eb; border-radius: 14px; background: #fff; box-shadow: 0 8px 20px #174a760c; }
-.workflow-tabs button { width: auto; flex: 1 0 max-content; padding: 10px 14px; border-radius: 9px; background: transparent; box-shadow: none; color: #526d86; font-size: .78rem; }
+.workflow-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0 0 8px; padding: 6px; border: 1px solid #d5e1eb; border-radius: 14px; background: #fff; box-shadow: 0 8px 20px #174a760c; }
+.workflow-tabs > button { width: 100% !important; min-width: 0; padding: 10px 14px; border-radius: 9px; background: transparent; box-shadow: none; color: #526d86; font-size: .78rem; white-space: nowrap; }
 .workflow-tabs button:hover { background: #edf5fb; color: #0067b5; filter: none; }
 .workflow-tabs button[aria-selected="true"] { background: #0067b5; color: #fff; box-shadow: 0 5px 12px #0067b52b; }
 .workflow-tabs button:focus-visible { outline: 3px solid #e72d21; outline-offset: 2px; }
@@ -96,6 +96,7 @@ footer { padding-top: 32px; color: #71879c; text-align: center; font-size: .72re
 .table-wrap th { position: sticky; top: 0; background: #eaf4fb; color: #073f78; }
 .prediction-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; grid-column: 1 / -1; }
 @media (max-width: 760px) { .training-panel, .prediction-fields { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .workflow-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .coco-controls { display: flex; align-items: end; gap: 12px; margin-bottom: 16px; }
 .download-progress { margin-top: 14px; }
 .download-progress-label { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; color: #315676; font-size: .76rem; font-weight: 700; }

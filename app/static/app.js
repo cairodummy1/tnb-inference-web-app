@@ -113,7 +113,7 @@ async function loadCocoPage(page = 0) {
 function renderCocoStatus(data) {
   const splitSummary = Object.entries(data.splits || {}).map(([name, value]) => `${name}: ${value.images || 0} images`).join(", ");
   status("#coco-status", data.status === "ready" ? `COCO 2017 ready. ${splitSummary}` : `COCO import status: ${data.status}. ${data.error || "Start the full import to load the dataset."}`);
-  document.querySelector("#coco-start-import").hidden = ["ready", "queued", "running"].includes(data.status);
+  document.querySelector("#coco-start-import").hidden = data.status === "ready" || data.status === "queued" || (data.status === "running" && Boolean(data.job_id));
   const progress = document.querySelector("#coco-download-progress"), download = data.download;
   progress.hidden = !download;
   if (download) { document.querySelector("#coco-download-name").textContent = `Downloading ${download.artifact}`; document.querySelector("#coco-download-percent").textContent = download.percent === null ? "Receiving…" : `${download.percent.toFixed(1)}%`; document.querySelector("#coco-download-bar").value = download.percent || 0; }

@@ -187,7 +187,7 @@ def import_coco2017() -> None:
 def status(db) -> dict:
     record = db.coco_imports.find_one({"_id": DATASET_ID}) or {"status": "not_imported", "splits": {}}
     categories = list(db.coco_categories.find({}, {"_id": 0}).sort("category_id", ASCENDING))
-    return {"status": record.get("status", "not_imported"), "splits": record.get("splits", {}), "categories": categories, "error": record.get("error"), "download": record.get("download")}
+    return {"status": record.get("status", "not_imported"), "splits": record.get("splits", {}), "categories": categories, "error": record.get("error"), "download": record.get("download"), "job_id": record.get("job_id")}
 
 
 def list_images(db, split: str | None, category_id: int | None, after: str | None, limit: int) -> dict:

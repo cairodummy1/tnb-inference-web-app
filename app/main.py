@@ -220,8 +220,15 @@ def get_coco_status() -> dict:
 def create_coco_import_job() -> dict:
     db = get_coco_database()
     current = coco_status(db)
-    if current["status"] in {"queued", "running"}:
-        raise HTTPException(status_code=409, detail="A COCO import job is already queued or running.")
+    if current["status"] in {"queued", "running"} and current.get("job_id"):
+        try:
+            job = Job.fetch(current["job_id"], connection=redis)
+            current_status = job.get_status(refresh=True)
+            job_status = getattr(current_status, "value", current_status)
+        except (NoSuchJobError, RedisError):
+            job_status = ""
+        if job_status in {"queued", "started", "deferred", "scheduled"}:
+            raise HTTPException(status_code=409, detail="A COCO import job is already queued or running.")
     if current["status"] == "ready":
         raise HTTPException(status_code=409, detail="COCO is already imported.")
     try:

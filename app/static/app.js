@@ -82,7 +82,7 @@ async function loadLatestModel() { const response = await fetch("/tabular/model"
 document.querySelector("#prediction-form").addEventListener("submit", async event => { event.preventDefault(); const features = Object.fromEntries(new FormData(event.currentTarget)); try { const response = await fetch("/tabular/predictions", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({features})}); const result = await response.json(); if (!response.ok) throw new Error(result.detail); document.querySelector("#prediction-result").textContent = result.task === "regression" ? `${result.target}: ${result.prediction}` : `${result.target}: ${result.prediction} (${Object.entries(result.probabilities).map(([name, value]) => `${name} ${(value * 100).toFixed(1)}%`).join(", ")})`; } catch (error) { document.querySelector("#prediction-result").textContent = `Error: ${error.message}`; } });
 loadLatestModel().catch(error => status("#training-status", `Error loading latest model: ${error.message}`));
 
-let cocoCursors = [null], cocoPage = 0, cocoSelected = null, cocoBoxesVisible = true;
+let cocoCursors = [null], cocoPage = 0, cocoSelected = null, cocoBoxesVisible = true, cocoBrowserInitialised = false, cocoStatusTimer = null;
 const cocoBrowser = document.querySelector("#coco-browser");
 function drawCocoBoxes() {
   const image = document.querySelector("#coco-image"), canvas = document.querySelector("#coco-canvas");
@@ -110,11 +110,20 @@ async function loadCocoPage(page = 0) {
   const grid = document.querySelector("#coco-thumbnails"); grid.replaceChildren(); data.images.forEach(item => { const button = document.createElement("button"); button.type = "button"; button.className = "coco-thumbnail"; const image = document.createElement("img"); image.src = item.url; image.alt = item.filename; const caption = document.createElement("span"); caption.textContent = `${item.split} · ${item.annotation_count} labels`; button.append(image, caption); button.addEventListener("click", () => selectCocoImage(item.image_key).catch(error => status("#coco-status", `Error: ${error.message}`))); grid.append(button); });
   document.querySelector("#coco-previous").disabled = page === 0; document.querySelector("#coco-next").disabled = !data.next_cursor;
 }
-async function initialiseCoco() {
-  const response = await fetch("/coco/status"), data = await response.json(); if (!response.ok) throw new Error(data.detail);
+function renderCocoStatus(data) {
   const splitSummary = Object.entries(data.splits || {}).map(([name, value]) => `${name}: ${value.images || 0} images`).join(", ");
   status("#coco-status", data.status === "ready" ? `COCO 2017 ready. ${splitSummary}` : `COCO import status: ${data.status}. ${data.error || "Run the documented importer command to load the dataset."}`);
-  if (data.status !== "ready") return;
+  const progress = document.querySelector("#coco-download-progress"), download = data.download;
+  progress.hidden = !download;
+  if (download) { document.querySelector("#coco-download-name").textContent = `Downloading ${download.artifact}`; document.querySelector("#coco-download-percent").textContent = download.percent === null ? "Receiving…" : `${download.percent.toFixed(1)}%`; document.querySelector("#coco-download-bar").value = download.percent || 0; }
+}
+async function initialiseCoco() {
+  const response = await fetch("/coco/status"), data = await response.json(); if (!response.ok) throw new Error(data.detail);
+  renderCocoStatus(data);
+  if (data.status !== "ready") { if (data.status === "running" && !cocoStatusTimer) cocoStatusTimer = setInterval(() => initialiseCoco().catch(error => status("#coco-status", `COCO dataset unavailable: ${error.message}`)), 2000); return; }
+  if (cocoStatusTimer) { clearInterval(cocoStatusTimer); cocoStatusTimer = null; }
+  if (cocoBrowserInitialised) return;
+  cocoBrowserInitialised = true;
   const category = document.querySelector("#coco-category"); data.categories.forEach(item => category.add(new Option(item.name, item.category_id)));
   cocoBrowser.hidden = false; await loadCocoPage();
 }

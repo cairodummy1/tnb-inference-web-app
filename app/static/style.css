@@ -97,6 +97,9 @@ footer { padding-top: 32px; color: #71879c; text-align: center; font-size: .72re
 .prediction-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; grid-column: 1 / -1; }
 @media (max-width: 760px) { .training-panel, .prediction-fields { grid-template-columns: 1fr; } }
 .coco-controls { display: flex; align-items: end; gap: 12px; margin-bottom: 16px; }
+.download-progress { margin-top: 14px; }
+.download-progress-label { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; color: #315676; font-size: .76rem; font-weight: 700; }
+.download-progress progress { width: 100%; height: 10px; accent-color: #0067b5; }
 .coco-controls label { display: grid; gap: 6px; flex: 1; color: #315676; font-size: .78rem; font-weight: 700; }
 .coco-controls select { width: 100%; border: 1px solid #bfd4e5; border-radius: 8px; padding: 10px; background: #fff; color: #193e63; font: inherit; }
 .coco-controls button { width: auto; min-width: 165px; }

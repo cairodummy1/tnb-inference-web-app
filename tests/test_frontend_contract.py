@@ -47,6 +47,8 @@ def test_frontend_includes_coco_browser_and_bbox_toggle():
     assert "/coco/status" in script
     assert "/coco/images" in script
     assert "cocoBoxesVisible" in script
+    assert "coco-download-progress" in source
+    assert "Downloading ${download.artifact}" in script
 
 
 def test_frontend_uses_accessible_workflow_tabs():

@@ -60,10 +60,19 @@ def image_url(key: str) -> str:
     return f"/coco/images/{key}/file"
 
 
-def _download(url: str, destination: Path) -> None:
+def _download(url: str, destination: Path, progress=None) -> None:
     temporary = destination.with_suffix(destination.suffix + ".part")
     with urllib.request.urlopen(url) as response, temporary.open("wb") as output:
-        shutil.copyfileobj(response, output, length=1024 * 1024)
+        total = int(response.headers.get("Content-Length", "0"))
+        downloaded = 0
+        last_reported = -1
+        while chunk := response.read(1024 * 1024):
+            output.write(chunk)
+            downloaded += len(chunk)
+            percent = round(downloaded / total * 100, 1) if total else None
+            if progress and (percent is None or int(percent) != last_reported or downloaded == total):
+                progress(downloaded, total, percent)
+                last_reported = int(percent) if percent is not None else last_reported
     temporary.replace(destination)
 
 
@@ -78,7 +87,7 @@ def _extract(archive: Path, destination: Path) -> None:
         source.extractall(destination)
 
 
-def _ensure_downloaded(name: str) -> None:
+def _ensure_downloaded(name: str, progress=None) -> None:
     root = data_dir()
     if name == "annotations":
         expected = root / "annotations" / "instances_train2017.json"
@@ -91,7 +100,7 @@ def _ensure_downloaded(name: str) -> None:
     archive = root / f"{name}.zip"
     if not archive.exists():
         print(f"Downloading {name}…", flush=True)
-        _download(ARCHIVES[name], archive)
+        _download(ARCHIVES[name], archive, progress)
     print(f"Extracting {name}…", flush=True)
     _extract(archive, destination)
     archive.unlink(missing_ok=True)
@@ -151,9 +160,16 @@ def import_coco2017() -> None:
     ensure_indexes(db)
     db.coco_imports.update_one({"_id": DATASET_ID}, {"$set": {"status": "running", "started_at": now(), "error": None}}, upsert=True)
     try:
-        _ensure_downloaded("annotations")
+        def report_download(name: str):
+            def callback(downloaded: int, total: int, percent: float | None) -> None:
+                db.coco_imports.update_one({"_id": DATASET_ID}, {"$set": {"download": {"artifact": name, "downloaded_bytes": downloaded, "total_bytes": total, "percent": percent, "updated_at": now()}}})
+                if percent is not None:
+                    print(f"Downloading {name}: {percent:.1f}%", flush=True)
+            return callback
+
+        _ensure_downloaded("annotations", report_download("annotations"))
         for split in SPLITS:
-            _ensure_downloaded(split)
+            _ensure_downloaded(split, report_download(split))
         categories = _load_instances("train2017")["categories"]
         db.coco_categories.bulk_write([
             UpdateOne({"category_id": int(category["id"])}, {"$set": {"category_id": int(category["id"]), "name": category["name"], "supercategory": category["supercategory"]}}, upsert=True)
@@ -162,7 +178,7 @@ def import_coco2017() -> None:
         for split in SPLITS:
             print(f"Importing {split} metadata…", flush=True)
             _import_split(db, split)
-        db.coco_imports.update_one({"_id": DATASET_ID}, {"$set": {"status": "ready", "completed_at": now(), "error": None}})
+        db.coco_imports.update_one({"_id": DATASET_ID}, {"$set": {"status": "ready", "completed_at": now(), "error": None}, "$unset": {"download": ""}})
     except Exception as error:
         db.coco_imports.update_one({"_id": DATASET_ID}, {"$set": {"status": "failed", "error": str(error), "updated_at": now()}}, upsert=True)
         raise
@@ -171,7 +187,7 @@ def import_coco2017() -> None:
 def status(db) -> dict:
     record = db.coco_imports.find_one({"_id": DATASET_ID}) or {"status": "not_imported", "splits": {}}
     categories = list(db.coco_categories.find({}, {"_id": 0}).sort("category_id", ASCENDING))
-    return {"status": record.get("status", "not_imported"), "splits": record.get("splits", {}), "categories": categories, "error": record.get("error")}
+    return {"status": record.get("status", "not_imported"), "splits": record.get("splits", {}), "categories": categories, "error": record.get("error"), "download": record.get("download")}
 
 
 def list_images(db, split: str | None, category_id: int | None, after: str | None, limit: int) -> dict:

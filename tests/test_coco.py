@@ -24,4 +24,4 @@ def test_coco_status_defaults_to_not_imported():
         coco_imports = Collection()
         coco_categories = Collection()
 
-    assert coco.status(Database()) == {"status": "not_imported", "splits": {}, "categories": [], "error": None}
+    assert coco.status(Database()) == {"status": "not_imported", "splits": {}, "categories": [], "error": None, "download": None}

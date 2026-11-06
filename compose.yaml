@@ -11,7 +11,9 @@ services:
       retries: 10
 
   mongodb:
-    image: mongo:8
+    # MongoDB 7.0.41 includes the Linux 6.19 rseq compatibility fix; pin it
+    # because the floating MongoDB 8 tag can select an incompatible build.
+    image: mongo:7.0.41-jammy
     restart: unless-stopped
     volumes:
       - mongo-data:/data/db

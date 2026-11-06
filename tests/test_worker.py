@@ -31,6 +31,26 @@ class FakeModel:
         }]
 
 
+class FakeClassifierWeights:
+    meta = {"categories": ["zero", "one", "two", "three", "four", "five"]}
+
+    @staticmethod
+    def transforms():
+        return lambda _image: torch.zeros((3, 12, 16))
+
+
+class FakeClassifier:
+    def __init__(self):
+        self.device = torch.device("cpu")
+
+    def to(self, device):
+        self.device = device
+        return self
+
+    def __call__(self, _batch):
+        return torch.tensor([[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]], device=self.device)
+
+
 def test_resolve_cpu_and_rejects_unknown_device(monkeypatch):
     monkeypatch.setenv("INFERENCE_DEVICE", "cpu")
     assert worker.resolve_device().type == "cpu"
@@ -72,3 +92,18 @@ def test_detect_returns_json_safe_detection(monkeypatch, tmp_path):
         "image_height": 12,
         "detections": [{"label": "person", "score": 0.9, "box": [1.25, 2.5, 10.0, 11.5]}],
     }
+
+
+def test_classify_returns_top_five_json_safe_predictions(monkeypatch, tmp_path):
+    image_path = tmp_path / "sample.jpg"
+    Image.new("RGB", (16, 12), "white").save(image_path)
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setenv("INFERENCE_DEVICE", "cpu")
+    monkeypatch.setattr(worker, "_classifier", FakeClassifier())
+    monkeypatch.setattr(worker, "_classifier_weights", FakeClassifierWeights())
+    monkeypatch.setattr(worker, "_classifier_device", torch.device("cpu"))
+
+    result = worker.classify(image_path.name)
+
+    assert result["model"] == "ResNet-50 ImageNet-1K"
+    assert [item["label"] for item in result["predictions"]] == ["five", "four", "three", "two", "one"]

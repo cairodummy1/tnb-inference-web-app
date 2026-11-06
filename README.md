@@ -1,12 +1,12 @@
-# Simple async object detection
+# TNB Inference
 
-A deliberately small, newcomer-friendly object-detection app:
+TNB Inference is a deliberately small, newcomer-friendly asynchronous PyTorch demo with COCO object detection, ImageNet image classification, a file-trained ANN for numeric tabular prediction, and a MongoDB-backed COCO 2017 dataset browser.
 
 ```text
 browser → FastAPI → Redis/RQ queue → PyTorch worker → Redis result → browser
 ```
 
-The web page uploads an image, receives a job ID, polls that ID, and draws the returned bounding boxes on a canvas. It does not need a database: Redis stores the queue and RQ job state/result for this demo.
+The web page uploads images or tabular datasets, receives a job ID, and polls it for results. Redis stores RQ job state/results; the latest successful ANN model and its source-file metadata are stored in the shared data volume.
 
 ## Run it
 
@@ -17,6 +17,18 @@ docker compose up --build
 ```
 
 Open [http://localhost:8000](http://localhost:8000). The worker downloads the model weights only once and retains them in a Docker volume. Stop with `Ctrl+C`; use `docker compose down` to remove containers while preserving Redis jobs/results and model weights.
+
+### Import the complete COCO 2017 dataset
+
+The dataset browser imports official COCO 2017 train and validation object-detection data only. It downloads approximately 123k images to `data/coco/images`, saves categories/images/annotations in MongoDB, and serves JPEGs through FastAPI. Reserve roughly 50 GB of local disk space for sequential archive download and extraction.
+
+Start the normal stack first, then run this explicit one-time import command. It is resumable and safe to rerun after interruption:
+
+```bash
+docker compose --profile tools run --rm coco-importer
+```
+
+The importer intentionally does not run during normal startup. After completion, use the COCO Dataset section to browse train or validation images, filter by category, and toggle ground-truth bounding boxes and labels.
 
 ### NVIDIA GPU mode
 
@@ -33,17 +45,30 @@ The GPU override builds only the worker with PyTorch 2.7.1 and CUDA 12.8, which 
 | Endpoint | Purpose |
 | --- | --- |
 | `POST /jobs` | Multipart field `image`; returns `202` plus `{ "job_id", "status" }`. |
+| `POST /classification/jobs` | Multipart image; queues ResNet-50 ImageNet classification. |
 | `GET /jobs/{job_id}` | Returns `queued`, `started`, `finished`, or `failed`; includes `result` when finished. |
+| `POST /tabular/datasets` | Upload a CSV/XLSX/XLS file and return its dataset ID and preview. |
+| `GET /tabular/datasets/{dataset_id}/preview` | Preview a CSV or selected Excel worksheet. |
+| `POST /tabular/training-jobs` | Queue ANN training with dataset ID, worksheet, target, and task. |
+| `GET /tabular/model` | Return metadata for the latest successful ANN model. |
+| `POST /tabular/predictions` | Predict from the latest ANN with an exact feature-value schema. |
+| `GET /coco/status` | Return COCO import state, split counts, and categories. |
+| `GET /coco/images` | Cursor-paginated COCO image metadata with optional split/category filters. |
+| `GET /coco/images/{image_key}` | Return one image and its ground-truth COCO boxes/labels. |
+| `GET /coco/images/{image_key}/file` | Stream the server-stored COCO JPEG. |
 | `GET /health` | Checks Redis and that an RQ worker is listening on `inference`. |
 
-Results expire after one hour; failed-job records remain for one day. Redis is persisted in a named Docker volume. Uploaded files remain under `data/uploads` for easy inspection and the `cleanup` service deletes files older than 24 hours. Do not use this demo for workloads expected to wait in the queue for over 24 hours.
+Results expire after one hour; failed-job records remain for one day. Redis is persisted in a named Docker volume. Temporary images and datasets remain under `data/uploads` and `data/tabular/datasets` for easy inspection and the `cleanup` service deletes them after 24 hours. The latest successful ANN run, saved model state, metadata, and source-file copy remain under `data/tabular/models`.
 
 ## Why these choices?
 
 - **FastAPI** handles uploads and makes a small JSON API with little ceremony.
 - **Redis + RQ** is the simplest queue fit for a Python-only project: RQ uses ordinary Python functions and gives every queued function a job ID/status. BullMQ would add a Node service just to operate the queue; RabbitMQ is a solid broker but needs more concepts and configuration for this learning app.
 - **Torchvision SSDLite320 MobileNetV3-Large (`DEFAULT` / COCO_V1)** is an official public COCO-trained model. It is only 3.4M parameters and 0.58 GFLOPS, making it a practical CPU-first demo. The trade-off is lower COCO box mAP (25.1) than the heavier Faster R-CNN ResNet-50 FPN V2 (46.7 mAP, 43.7M parameters, 280.37 GFLOPS).
-- The worker preloads the CPU model once and uses RQ's same-process worker, so PyTorch is not forked after initialization. The first GPU job moves that model to CUDA. This is a sound small-demo trade-off; RQ's same-process worker does not emit periodic job heartbeats, so use the regular RQ worker architecture with a separately managed model server for production workloads that require strict process isolation and heartbeat monitoring.
+- **Torchvision ResNet-50 (`DEFAULT` / ImageNet-1K)** returns the top five predictions from ImageNet's 1,000 general categories. It is not a custom TNB classifier; fine-tuning is required for domain-specific labels.
+- **Custom ANN** accepts numeric feature columns only. The browser previews the uploaded CSV/XLSX dataset, lets the user choose one target column and classification or regression, then trains a 128→64 PyTorch MLP. The latest successful model stores its feature order, scaling data, target/classes, metrics, source file, and training settings so the prediction form always matches its schema.
+- **COCO 2017 browser** stores categories, image metadata, and detection annotations in MongoDB. Image JPEGs remain in the server’s `data/coco/images` directory, and MongoDB stores a FastAPI image URL rather than binary image data.
+- The image worker preloads its public CPU models once and uses RQ's same-process worker, so PyTorch is not forked after initialization. A separate training worker prevents long ANN training from blocking image jobs. GPU Compose grants both workers NVIDIA GPU access.
 
 The model recognizes the 80 standard COCO object categories; it is not a custom detector. Adjust `SCORE_THRESHOLD` in `compose.yaml` to change the 0.5 display cutoff.
 
@@ -62,3 +87,5 @@ pytest
 
 - [Torchvision object-detection models and official COCO metrics](https://docs.pytorch.org/vision/stable/models.html#object-detection)
 - [SSDLite320 MobileNetV3 implementation and COCO weights](https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.detection.ssdlite320_mobilenet_v3_large.html)
+- [Torchvision classification models and ResNet-50 ImageNet weights](https://docs.pytorch.org/vision/main/models)
+- [Official COCO 2017 detection dataset](https://cocodataset.org/dataset/detection-2017.htm)

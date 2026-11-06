@@ -21,11 +21,13 @@ def cleanup_once(upload_dir: Path, retention_seconds: int) -> int:
 
 def main() -> None:
     upload_dir = Path(os.environ.get("UPLOAD_DIR", "data/uploads"))
+    dataset_dir = Path(os.environ.get("TABULAR_DATASET_DIR", "data/tabular/datasets"))
     retention_seconds = int(os.environ.get("UPLOAD_RETENTION_SECONDS", "86400"))
     interval_seconds = max(60, int(os.environ.get("CLEANUP_INTERVAL_SECONDS", "3600")))
     upload_dir.mkdir(parents=True, exist_ok=True)
+    dataset_dir.mkdir(parents=True, exist_ok=True)
     while True:
-        removed = cleanup_once(upload_dir, retention_seconds)
+        removed = cleanup_once(upload_dir, retention_seconds) + cleanup_once(dataset_dir, retention_seconds)
         if removed:
             print(f"Removed {removed} expired upload(s).", flush=True)
         time.sleep(interval_seconds)

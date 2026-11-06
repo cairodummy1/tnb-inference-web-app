@@ -10,6 +10,17 @@ services:
       timeout: 3s
       retries: 10
 
+  mongodb:
+    image: mongo:8
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -18,10 +29,17 @@ services:
     environment:
       REDIS_URL: redis://redis:6379/0
       UPLOAD_DIR: /data/uploads
+      TABULAR_DATASET_DIR: /data/tabular/datasets
+      TABULAR_MODEL_DIR: /data/tabular/models
+      MONGODB_URL: mongodb://mongodb:27017
+      COCO_DATABASE: tnb_inference
+      COCO_DATA_DIR: /data/coco
     volumes:
       - ./data:/data
     depends_on:
       redis:
+        condition: service_healthy
+      mongodb:
         condition: service_healthy
     restart: unless-stopped
 
@@ -52,17 +70,52 @@ services:
       timeout: 5s
       retries: 6
 
+  training-worker:
+    image: simple-inference-worker-cpu
+    build:
+      context: .
+      args:
+        PYTORCH_WHEEL_CHANNEL: cpu
+    command: python -m app.run_training_worker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      INFERENCE_DEVICE: cpu
+      TABULAR_DATASET_DIR: /data/tabular/datasets
+      TABULAR_MODEL_DIR: /data/tabular/models
+    volumes:
+      - ./data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   cleanup:
     build: .
     command: python -m app.cleanup
     environment:
       UPLOAD_DIR: /data/uploads
+      TABULAR_DATASET_DIR: /data/tabular/datasets
       UPLOAD_RETENTION_SECONDS: "86400"
       CLEANUP_INTERVAL_SECONDS: "3600"
     volumes:
       - ./data:/data
     restart: unless-stopped
 
+  coco-importer:
+    build: .
+    command: python -m app.run_coco_importer
+    profiles: ["tools"]
+    environment:
+      MONGODB_URL: mongodb://mongodb:27017
+      COCO_DATABASE: tnb_inference
+      COCO_DATA_DIR: /data/coco
+    volumes:
+      - ./data:/data
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
 volumes:
   redis-data:
   torch-model-cache:
+  mongo-data:

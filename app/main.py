@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import io
+import json
 import os
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from pydantic import BaseModel
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image, UnidentifiedImageError
@@ -14,8 +16,10 @@ from rq import Queue
 from rq.job import Job
 from rq.exceptions import NoSuchJobError
 
-from app.queueing import has_inference_worker, redis_connection
-from app.worker import detect
+from app.queueing import has_inference_worker, has_training_worker, redis_connection
+from app.coco import database as coco_database, image_details as coco_image_details, image_root as coco_image_root, list_images as coco_list_images, status as coco_status
+from app.tabular import dataset_path, preview_dataset, predict_latest, train_tabular_model
+from app.worker import classify, detect
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_IMAGE_PIXELS = 25_000_000
@@ -25,9 +29,11 @@ upload_dir = Path(os.environ.get("UPLOAD_DIR", "data/uploads"))
 upload_dir.mkdir(parents=True, exist_ok=True)
 redis = redis_connection()
 queue = Queue("inference", connection=redis, default_timeout=300)
+training_queue = Queue("training", connection=redis, default_timeout=3600)
 
-app = FastAPI(title="Simple Object Detection")
+app = FastAPI(title="TNB Inference")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/public", StaticFiles(directory="app/public"), name="public")
 
 
 @app.get("/", include_in_schema=False)
@@ -40,11 +46,34 @@ def health() -> dict:
     try:
         redis.ping()
         worker_ready = has_inference_worker(redis)
+        training_ready = has_training_worker(redis)
     except RedisError as error:
         raise HTTPException(status_code=503, detail="Redis is unavailable") from error
     if not worker_ready:
         raise HTTPException(status_code=503, detail="No inference worker is available")
-    return {"status": "ok", "worker": "ready"}
+    return {"status": "ok", "worker": "ready", "training_worker": "ready" if training_ready else "unavailable"}
+
+
+async def save_image_upload(image: UploadFile) -> str:
+    content = await image.read(MAX_UPLOAD_BYTES + 1)
+    if not content:
+        raise HTTPException(status_code=400, detail="Please choose an image.")
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Images must be 10 MB or smaller.")
+    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+    try:
+        with Image.open(io.BytesIO(content)) as candidate:
+            candidate.verify()
+        with Image.open(io.BytesIO(content)) as candidate:
+            image_format = candidate.format
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
+        raise HTTPException(status_code=400, detail="Upload a valid JPEG, PNG, or WebP image.") from error
+    extension = ALLOWED_FORMATS.get(image_format or "")
+    if not extension:
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG, and WebP images are supported.")
+    filename = f"{uuid4()}.{extension}"
+    (upload_dir / filename).write_bytes(content)
+    return filename
 
 
 @app.post("/jobs", status_code=202)
@@ -54,33 +83,175 @@ async def create_job(image: UploadFile = File(...)) -> dict:
             raise HTTPException(status_code=503, detail="No inference worker is available. Try again shortly.")
     except RedisError as error:
         raise HTTPException(status_code=503, detail="Redis is unavailable") from error
-    content = await image.read(MAX_UPLOAD_BYTES + 1)
-    if not content:
-        raise HTTPException(status_code=400, detail="Please choose an image.")
-    if len(content) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Images must be 10 MB or smaller.")
-
-    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
-    try:
-        with Image.open(io.BytesIO(content)) as candidate:
-            candidate.verify()
-        with Image.open(io.BytesIO(content)) as candidate:
-            image_format = candidate.format
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
-        raise HTTPException(status_code=400, detail="Upload a valid JPEG, PNG, or WebP image.") from error
-
-    extension = ALLOWED_FORMATS.get(image_format or "")
-    if not extension:
-        raise HTTPException(status_code=400, detail="Only JPEG, PNG, and WebP images are supported.")
-    job_id = str(uuid4())
-    filename = f"{job_id}.{extension}"
-    (upload_dir / filename).write_bytes(content)
+    filename = await save_image_upload(image)
+    job_id = Path(filename).stem
     try:
         queue.enqueue(detect, filename, job_id=job_id, result_ttl=3600, failure_ttl=86400)
     except RedisError as error:
         (upload_dir / filename).unlink(missing_ok=True)
         raise HTTPException(status_code=503, detail="Could not queue the inference job.") from error
     return {"job_id": job_id, "status": "queued"}
+
+
+@app.post("/classification/jobs", status_code=202)
+async def create_classification_job(image: UploadFile = File(...)) -> dict:
+    try:
+        if not has_inference_worker(redis):
+            raise HTTPException(status_code=503, detail="No inference worker is available. Try again shortly.")
+    except RedisError as error:
+        raise HTTPException(status_code=503, detail="Redis is unavailable") from error
+    filename = await save_image_upload(image)
+    job_id = Path(filename).stem
+    try:
+        queue.enqueue(classify, filename, job_id=job_id, result_ttl=3600, failure_ttl=86400)
+    except RedisError as error:
+        (upload_dir / filename).unlink(missing_ok=True)
+        raise HTTPException(status_code=503, detail="Could not queue the classification job.") from error
+    return {"job_id": job_id, "status": "queued"}
+
+
+class TrainingRequest(BaseModel):
+    dataset_id: str
+    sheet: str
+    target: str
+    task: str
+
+
+class PredictionRequest(BaseModel):
+    features: dict[str, object]
+
+
+@app.post("/tabular/datasets", status_code=201)
+async def upload_tabular_dataset(dataset: UploadFile = File(...)) -> dict:
+    suffix = Path(dataset.filename or "").suffix.lower()
+    if suffix not in {".csv", ".xlsx", ".xls"}:
+        raise HTTPException(status_code=400, detail="Upload a CSV or Excel (.xlsx, .xls) file.")
+    content = await dataset.read(MAX_UPLOAD_BYTES + 1)
+    if not content:
+        raise HTTPException(status_code=400, detail="Please choose a dataset file.")
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Dataset files must be 10 MB or smaller.")
+    from app.tabular import dataset_dir
+    dataset_id = str(uuid4())
+    saved = dataset_dir() / f"{dataset_id}{suffix}"
+    saved.write_bytes(content)
+    try:
+        preview = preview_dataset(saved)
+    except (ValueError, OSError, UnicodeDecodeError) as error:
+        saved.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=f"Could not read the dataset: {error}") from error
+    (dataset_dir() / f"{dataset_id}.json").write_text(json.dumps({"filename": dataset.filename or saved.name}))
+    return {"dataset_id": dataset_id, "filename": dataset.filename, **preview}
+
+
+@app.get("/tabular/datasets/{dataset_id}/preview")
+def get_dataset_preview(dataset_id: str, sheet: str | None = None) -> dict:
+    path = dataset_path(dataset_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Dataset not found or it has expired.")
+    try:
+        return preview_dataset(path, sheet)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/tabular/training-jobs", status_code=202)
+def create_training_job(request: TrainingRequest) -> dict:
+    path = dataset_path(request.dataset_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Dataset not found or it has expired.")
+    if request.task not in {"classification", "regression"}:
+        raise HTTPException(status_code=400, detail="Task must be classification or regression.")
+    try:
+        preview = preview_dataset(path, request.sheet)
+        if request.target not in {column["name"] for column in preview["columns"]}:
+            raise ValueError("Select a target column from the dataset preview.")
+        if not has_training_worker(redis):
+            raise HTTPException(status_code=503, detail="No training worker is available. Try again shortly.")
+    except RedisError as error:
+        raise HTTPException(status_code=503, detail="Redis is unavailable") from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    original_name = json.loads((path.parent / f"{request.dataset_id}.json").read_text())["filename"]
+    job_id = str(uuid4())
+    try:
+        training_queue.enqueue(train_tabular_model, path.name, original_name, request.sheet, request.target, request.task, job_id=job_id, result_ttl=3600, failure_ttl=86400)
+    except RedisError as error:
+        raise HTTPException(status_code=503, detail="Could not queue the training job.") from error
+    return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/tabular/model")
+def get_tabular_model() -> dict:
+    from app.tabular import latest_metadata
+    metadata = latest_metadata()
+    if metadata is None:
+        raise HTTPException(status_code=404, detail="No ANN model has been trained yet.")
+    return metadata
+
+
+@app.post("/tabular/predictions")
+def create_tabular_prediction(request: PredictionRequest) -> dict:
+    try:
+        return predict_latest(request.features)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+def get_coco_database():
+    try:
+        db = coco_database()
+        db.command("ping")
+        return db
+    except Exception as error:
+        raise HTTPException(status_code=503, detail="COCO catalog database is unavailable.") from error
+
+
+@app.get("/coco/status")
+def get_coco_status() -> dict:
+    return coco_status(get_coco_database())
+
+
+@app.get("/coco/images")
+def get_coco_images(
+    split: str | None = Query(default=None, pattern="^(train2017|val2017)$"),
+    category_id: int | None = Query(default=None, ge=1),
+    cursor: str | None = None,
+    limit: int = Query(default=24, ge=1, le=100),
+) -> dict:
+    db = get_coco_database()
+    current = coco_status(db)
+    if current["status"] != "ready":
+        raise HTTPException(status_code=409, detail="COCO data has not finished importing.")
+    return coco_list_images(db, split, category_id, cursor, limit)
+
+
+@app.get("/coco/images/{image_key}")
+def get_coco_image(image_key: str) -> dict:
+    result = coco_image_details(get_coco_database(), image_key)
+    if result is None:
+        raise HTTPException(status_code=404, detail="COCO image was not found.")
+    return result
+
+
+@app.get("/coco/images/{image_key}/file")
+def get_coco_image_file(image_key: str) -> FileResponse:
+    try:
+        split, raw_id = image_key.split(":", 1)
+        if split not in {"train2017", "val2017"}:
+            raise ValueError
+        coco_id = int(raw_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail="COCO image was not found.") from error
+    image = get_coco_database().coco_images.find_one({"split": split, "coco_id": coco_id}, {"filename": 1})
+    if image is None:
+        raise HTTPException(status_code=404, detail="COCO image was not found.")
+    path = coco_image_root() / split / image["filename"]
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="COCO image file is unavailable on this server.")
+    return FileResponse(path, media_type="image/jpeg")
 
 
 @app.get("/jobs/{job_id}")
@@ -98,5 +269,5 @@ def get_job(job_id: str) -> dict:
     if status_value == "finished":
         response["result"] = job.result
     elif status_value == "failed":
-        response["error"] = "Inference failed. Check the worker logs for details."
+        response["error"] = "Job failed. Check the worker logs for details."
     return response

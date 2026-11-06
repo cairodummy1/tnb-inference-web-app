@@ -11,3 +11,14 @@ services:
     environment:
       INFERENCE_DEVICE: cuda
     gpus: all
+
+  training-worker:
+    image: simple-inference-worker-gpu
+    build:
+      args:
+        PYTORCH_WHEEL_CHANNEL: cu128
+        TORCH_VERSION: 2.7.1
+        TORCHVISION_VERSION: 0.22.1
+    environment:
+      INFERENCE_DEVICE: cuda
+    gpus: all

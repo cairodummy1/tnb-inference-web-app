@@ -47,3 +47,13 @@ def test_frontend_includes_coco_browser_and_bbox_toggle():
     assert "/coco/status" in script
     assert "/coco/images" in script
     assert "cocoBoxesVisible" in script
+
+
+def test_frontend_uses_accessible_workflow_tabs():
+    source = Path("app/static/index.html").read_text()
+    script = Path("app/static/app.js").read_text()
+
+    assert 'role="tablist"' in source
+    assert 'role="tabpanel"' in source
+    assert "activateTab" in script
+    assert "ArrowRight" in script

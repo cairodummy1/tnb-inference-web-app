@@ -4,6 +4,26 @@ let previewImage = null;
 let datasetId = null;
 let datasetPreview = null;
 
+function activateTab(name) {
+  document.querySelectorAll("[role=tab]").forEach(tab => {
+    const selected = tab.dataset.tab === name;
+    tab.setAttribute("aria-selected", String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  });
+  document.querySelectorAll(".workflow-panel").forEach(panel => {
+    panel.hidden = panel.id !== `panel-${name}`;
+  });
+}
+document.querySelectorAll("[role=tab]").forEach((tab, index, tabs) => {
+  tab.addEventListener("click", () => activateTab(tab.dataset.tab));
+  tab.addEventListener("keydown", event => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    tabs[next].focus(); activateTab(tabs[next].dataset.tab);
+  });
+});
+
 function status(id, message) { document.querySelector(id).textContent = message; }
 function fileLabel(input) { const label = input.closest("label").querySelector(".file-name"); if (input.files[0]) label.textContent = `${input.files[0].name} · ${(input.files[0].size / 1024 / 1024).toFixed(2)} MB`; }
 async function pollJob(jobId, statusId) {

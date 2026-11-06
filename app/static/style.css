@@ -73,6 +73,11 @@ button b { font-size: 1.2rem; }
 #detections { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
 #detections li { padding: 9px 10px; border: 1px solid #d3e2ed; border-radius: 8px; background: #f5faff; color: #315676; font-size: .76rem; }
 footer { padding-top: 32px; color: #71879c; text-align: center; font-size: .72rem; }
+.workflow-tabs { display: flex; gap: 6px; margin: 0 0 8px; padding: 6px; overflow-x: auto; border: 1px solid #d5e1eb; border-radius: 14px; background: #fff; box-shadow: 0 8px 20px #174a760c; }
+.workflow-tabs button { width: auto; flex: 1 0 max-content; padding: 10px 14px; border-radius: 9px; background: transparent; box-shadow: none; color: #526d86; font-size: .78rem; }
+.workflow-tabs button:hover { background: #edf5fb; color: #0067b5; filter: none; }
+.workflow-tabs button[aria-selected="true"] { background: #0067b5; color: #fff; box-shadow: 0 5px 12px #0067b52b; }
+.workflow-tabs button:focus-visible { outline: 3px solid #e72d21; outline-offset: 2px; }
 .workflow-section { padding: 28px 0; border-top: 1px solid #d8e3ed; }
 .section-heading { max-width: 680px; margin: 0 0 18px; }
 .section-heading h2 { margin: 0; color: #073f78; font-size: 1.55rem; letter-spacing: -.035em; }

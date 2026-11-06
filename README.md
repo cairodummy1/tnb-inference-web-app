@@ -22,13 +22,7 @@ Open [http://localhost:8000](http://localhost:8000). The worker downloads the mo
 
 The dataset browser imports official COCO 2017 train and validation object-detection data only. It downloads approximately 123k images to `data/coco/images`, saves categories/images/annotations in MongoDB, and serves JPEGs through FastAPI. Reserve roughly 50 GB of local disk space for sequential archive download and extraction.
 
-Start the normal stack first, then run this explicit one-time import command. It is resumable and safe to rerun after interruption:
-
-```bash
-docker compose --profile tools run --rm coco-importer
-```
-
-The importer intentionally does not run during normal startup. After completion, use the COCO Dataset section to browse train or validation images, filter by category, and toggle ground-truth bounding boxes and labels.
+Start the normal stack first, then open the **COCO Dataset** tab and select **Start full COCO import**. FastAPI queues the long-running job for the dedicated RQ COCO worker, so the API, image inference, and ANN training remain available. The import is resumable and safe to retry after interruption; the tab shows queue/download progress and completion state.
 
 ### NVIDIA GPU mode
 
@@ -53,6 +47,7 @@ The GPU override builds only the worker with PyTorch 2.7.1 and CUDA 12.8, which 
 | `GET /tabular/model` | Return metadata for the latest successful ANN model. |
 | `POST /tabular/predictions` | Predict from the latest ANN with an exact feature-value schema. |
 | `GET /coco/status` | Return COCO import state, split counts, and categories. |
+| `POST /coco/import-jobs` | Queue the full COCO 2017 download and MongoDB import. |
 | `GET /coco/images` | Cursor-paginated COCO image metadata with optional split/category filters. |
 | `GET /coco/images/{image_key}` | Return one image and its ground-truth COCO boxes/labels. |
 | `GET /coco/images/{image_key}/file` | Stream the server-stored COCO JPEG. |

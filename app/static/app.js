@@ -112,7 +112,8 @@ async function loadCocoPage(page = 0) {
 }
 function renderCocoStatus(data) {
   const splitSummary = Object.entries(data.splits || {}).map(([name, value]) => `${name}: ${value.images || 0} images`).join(", ");
-  status("#coco-status", data.status === "ready" ? `COCO 2017 ready. ${splitSummary}` : `COCO import status: ${data.status}. ${data.error || "Run the documented importer command to load the dataset."}`);
+  status("#coco-status", data.status === "ready" ? `COCO 2017 ready. ${splitSummary}` : `COCO import status: ${data.status}. ${data.error || "Start the full import to load the dataset."}`);
+  document.querySelector("#coco-start-import").hidden = ["ready", "queued", "running"].includes(data.status);
   const progress = document.querySelector("#coco-download-progress"), download = data.download;
   progress.hidden = !download;
   if (download) { document.querySelector("#coco-download-name").textContent = `Downloading ${download.artifact}`; document.querySelector("#coco-download-percent").textContent = download.percent === null ? "Receiving…" : `${download.percent.toFixed(1)}%`; document.querySelector("#coco-download-bar").value = download.percent || 0; }
@@ -120,7 +121,7 @@ function renderCocoStatus(data) {
 async function initialiseCoco() {
   const response = await fetch("/coco/status"), data = await response.json(); if (!response.ok) throw new Error(data.detail);
   renderCocoStatus(data);
-  if (data.status !== "ready") { if (data.status === "running" && !cocoStatusTimer) cocoStatusTimer = setInterval(() => initialiseCoco().catch(error => status("#coco-status", `COCO dataset unavailable: ${error.message}`)), 2000); return; }
+  if (data.status !== "ready") { if (["queued", "running"].includes(data.status) && !cocoStatusTimer) cocoStatusTimer = setInterval(() => initialiseCoco().catch(error => status("#coco-status", `COCO dataset unavailable: ${error.message}`)), 2000); return; }
   if (cocoStatusTimer) { clearInterval(cocoStatusTimer); cocoStatusTimer = null; }
   if (cocoBrowserInitialised) return;
   cocoBrowserInitialised = true;
@@ -131,4 +132,5 @@ document.querySelector("#coco-load").addEventListener("click", () => { cocoCurso
 document.querySelector("#coco-previous").addEventListener("click", () => loadCocoPage(cocoPage - 1).catch(error => status("#coco-status", `Error: ${error.message}`)));
 document.querySelector("#coco-next").addEventListener("click", () => loadCocoPage(cocoPage + 1).catch(error => status("#coco-status", `Error: ${error.message}`)));
 document.querySelector("#coco-toggle-boxes").addEventListener("click", () => { cocoBoxesVisible = !cocoBoxesVisible; document.querySelector("#coco-toggle-boxes").textContent = cocoBoxesVisible ? "Hide bounding boxes" : "Show bounding boxes"; drawCocoBoxes(); });
+document.querySelector("#coco-start-import").addEventListener("click", async event => { const button = event.currentTarget; button.disabled = true; try { const response = await fetch("/coco/import-jobs", {method: "POST"}), job = await response.json(); if (!response.ok) throw new Error(job.detail); status("#coco-status", `COCO import job ${job.job_id} queued.`); await initialiseCoco(); } catch (error) { status("#coco-status", `Could not start COCO import: ${error.message}`); button.disabled = false; } });
 initialiseCoco().catch(error => status("#coco-status", `COCO dataset unavailable: ${error.message}`));

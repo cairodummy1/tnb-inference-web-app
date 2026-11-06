@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -16,8 +17,8 @@ from rq import Queue
 from rq.job import Job
 from rq.exceptions import NoSuchJobError
 
-from app.queueing import has_inference_worker, has_training_worker, redis_connection
-from app.coco import database as coco_database, image_details as coco_image_details, image_root as coco_image_root, list_images as coco_list_images, status as coco_status
+from app.queueing import has_coco_worker, has_inference_worker, has_training_worker, redis_connection
+from app.coco import database as coco_database, image_details as coco_image_details, image_root as coco_image_root, import_coco2017, list_images as coco_list_images, status as coco_status
 from app.tabular import dataset_path, preview_dataset, predict_latest, train_tabular_model
 from app.worker import classify, detect
 
@@ -30,6 +31,7 @@ upload_dir.mkdir(parents=True, exist_ok=True)
 redis = redis_connection()
 queue = Queue("inference", connection=redis, default_timeout=300)
 training_queue = Queue("training", connection=redis, default_timeout=3600)
+coco_queue = Queue("coco-import", connection=redis, default_timeout=86400)
 
 app = FastAPI(title="TNB Inference")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -212,6 +214,24 @@ def get_coco_database():
 @app.get("/coco/status")
 def get_coco_status() -> dict:
     return coco_status(get_coco_database())
+
+
+@app.post("/coco/import-jobs", status_code=202)
+def create_coco_import_job() -> dict:
+    db = get_coco_database()
+    current = coco_status(db)
+    if current["status"] in {"queued", "running"}:
+        raise HTTPException(status_code=409, detail="A COCO import job is already queued or running.")
+    if current["status"] == "ready":
+        raise HTTPException(status_code=409, detail="COCO is already imported.")
+    try:
+        if not has_coco_worker(redis):
+            raise HTTPException(status_code=503, detail="No COCO import worker is available. Try again shortly.")
+        job = coco_queue.enqueue(import_coco2017, result_ttl=604800, failure_ttl=604800)
+    except RedisError as error:
+        raise HTTPException(status_code=503, detail="Could not queue the COCO import job.") from error
+    db.coco_imports.update_one({"_id": "coco2017"}, {"$set": {"status": "queued", "job_id": job.id, "queued_at": datetime.now(timezone.utc).isoformat(), "error": None}, "$unset": {"download": ""}}, upsert=True)
+    return {"job_id": job.id, "status": "queued"}
 
 
 @app.get("/coco/images")

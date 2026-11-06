@@ -103,19 +103,22 @@ services:
       - ./data:/data
     restart: unless-stopped
 
-  coco-importer:
+  coco-worker:
     build: .
-    command: python -m app.run_coco_importer
-    profiles: ["tools"]
+    command: python -m app.run_coco_worker
     environment:
+      REDIS_URL: redis://redis:6379/0
       MONGODB_URL: mongodb://mongodb:27017
       COCO_DATABASE: tnb_inference
       COCO_DATA_DIR: /data/coco
     volumes:
       - ./data:/data
     depends_on:
+      redis:
+        condition: service_healthy
       mongodb:
         condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   redis-data:

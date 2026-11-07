@@ -82,22 +82,38 @@ async function loadLatestModel() { const response = await fetch("/tabular/model"
 document.querySelector("#prediction-form").addEventListener("submit", async event => { event.preventDefault(); const features = Object.fromEntries(new FormData(event.currentTarget)); try { const response = await fetch("/tabular/predictions", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({features})}); const result = await response.json(); if (!response.ok) throw new Error(result.detail); document.querySelector("#prediction-result").textContent = result.task === "regression" ? `${result.target}: ${result.prediction}` : `${result.target}: ${result.prediction} (${Object.entries(result.probabilities).map(([name, value]) => `${name} ${(value * 100).toFixed(1)}%`).join(", ")})`; } catch (error) { document.querySelector("#prediction-result").textContent = `Error: ${error.message}`; } });
 loadLatestModel().catch(error => status("#training-status", `Error loading latest model: ${error.message}`));
 
-let cocoCursors = [null], cocoPage = 0, cocoBrowserInitialised = false, cocoStatusTimer = null;
+let cocoCursors = [null], cocoPage = 0, cocoBrowserInitialised = false, cocoStatusTimer = null, cocoSelected = null, cocoBoxesVisible = false;
 const cocoBrowser = document.querySelector("#coco-browser");
-function selectCocoImage(image) {
-  document.querySelector("#coco-image").src = image.url;
-  document.querySelector("#coco-image-title").textContent = image.filename;
-  document.querySelector("#coco-image-meta").textContent = `${image.width} × ${image.height} · ${image.split} · ${image.annotation_count} annotations`;
+const cocoModal = document.querySelector("#coco-modal");
+function drawCocoBoxes() {
+  const image = document.querySelector("#coco-image"), canvas = document.querySelector("#coco-canvas");
+  if (!cocoSelected || !cocoBoxesVisible || !image.naturalWidth) { canvas.hidden = true; return; }
+  canvas.hidden = false; canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d"); context.lineWidth = Math.max(2, canvas.width / 350); context.font = `${Math.max(14, canvas.width / 42)}px sans-serif`; context.textBaseline = "top";
+  cocoSelected.annotations.forEach(annotation => { const [x, y, width, height] = annotation.bbox, label = annotation.label;
+    context.strokeStyle = "#e72d21"; context.strokeRect(x, y, width, height); const labelWidth = context.measureText(label).width + 10, labelHeight = Math.max(20, canvas.width / 28);
+    context.fillStyle = "#0067b5"; context.fillRect(x, Math.max(0, y - labelHeight), labelWidth, labelHeight); context.fillStyle = "white"; context.fillText(label, x + 5, Math.max(0, y - labelHeight + 2));
+  });
+}
+async function selectCocoImage(image) {
+  const response = await fetch(`/coco/images/${encodeURIComponent(image.image_key)}`), detail = await response.json(); if (!response.ok) throw new Error(detail.detail);
+  cocoSelected = detail; cocoBoxesVisible = false;
+  const selectedImage = document.querySelector("#coco-image"); selectedImage.onload = drawCocoBoxes; selectedImage.src = detail.url;
+  document.querySelector("#coco-image-title").textContent = detail.filename;
+  document.querySelector("#coco-image-meta").textContent = `${detail.width} × ${detail.height} · ${detail.split} · ${detail.annotation_count} annotations`;
   const category = document.querySelector("#coco-category");
   document.querySelector("#coco-image-filter").textContent = category.value ? `Showing images containing: ${category.selectedOptions[0].text}` : "Showing all objects.";
-  document.querySelector("#coco-detail").hidden = false;
+  const labels = document.querySelector("#coco-labels"); labels.replaceChildren(); labels.hidden = true;
+  detail.annotations.forEach(annotation => { const item = document.createElement("li"); item.textContent = annotation.label; labels.append(item); });
+  document.querySelector("#coco-toggle-boxes").textContent = "Show bounding boxes & labels";
+  cocoModal.showModal();
 }
 async function loadCocoPage(page = 0) {
   const split = document.querySelector("#coco-split").value, category = document.querySelector("#coco-category").value, cursor = cocoCursors[page];
   const params = new URLSearchParams({split, limit: "24"}); if (category) params.set("category_id", category); if (cursor) params.set("cursor", cursor);
   const response = await fetch(`/coco/images?${params}`), data = await response.json(); if (!response.ok) throw new Error(data.detail);
   cocoPage = page; cocoCursors = cocoCursors.slice(0, page + 1); if (data.next_cursor) cocoCursors[page + 1] = data.next_cursor;
-  const grid = document.querySelector("#coco-thumbnails"); grid.replaceChildren(); data.images.forEach(item => { const button = document.createElement("button"); button.type = "button"; button.className = "coco-thumbnail"; const image = document.createElement("img"); image.src = item.url; image.alt = item.filename; const caption = document.createElement("span"); caption.textContent = `${item.split} · ${item.annotation_count} objects`; button.append(image, caption); button.addEventListener("click", () => selectCocoImage(item)); grid.append(button); });
+  const grid = document.querySelector("#coco-thumbnails"); grid.replaceChildren(); data.images.forEach(item => { const button = document.createElement("button"); button.type = "button"; button.className = "coco-thumbnail"; const image = document.createElement("img"); image.src = item.url; image.alt = item.filename; const caption = document.createElement("span"); caption.textContent = `${item.split} · ${item.annotation_count} objects`; button.append(image, caption); button.addEventListener("click", () => selectCocoImage(item).catch(error => status("#coco-status", `Error: ${error.message}`))); grid.append(button); });
   document.querySelector("#coco-previous").disabled = page === 0; document.querySelector("#coco-next").disabled = !data.next_cursor;
 }
 function renderCocoStatus(data) {
@@ -121,5 +137,7 @@ async function initialiseCoco() {
 document.querySelector("#coco-load").addEventListener("click", () => { cocoCursors = [null]; loadCocoPage().catch(error => status("#coco-status", `Error: ${error.message}`)); });
 document.querySelector("#coco-previous").addEventListener("click", () => loadCocoPage(cocoPage - 1).catch(error => status("#coco-status", `Error: ${error.message}`)));
 document.querySelector("#coco-next").addEventListener("click", () => loadCocoPage(cocoPage + 1).catch(error => status("#coco-status", `Error: ${error.message}`)));
+document.querySelector("#coco-modal-close").addEventListener("click", () => cocoModal.close());
+document.querySelector("#coco-toggle-boxes").addEventListener("click", () => { cocoBoxesVisible = !cocoBoxesVisible; document.querySelector("#coco-toggle-boxes").textContent = cocoBoxesVisible ? "Hide bounding boxes & labels" : "Show bounding boxes & labels"; document.querySelector("#coco-labels").hidden = !cocoBoxesVisible; drawCocoBoxes(); });
 document.querySelector("#coco-start-import").addEventListener("click", async event => { const button = event.currentTarget; button.disabled = true; try { const response = await fetch("/coco/import-jobs", {method: "POST"}), job = await response.json(); if (!response.ok) throw new Error(job.detail); status("#coco-status", `COCO import job ${job.job_id} queued.`); await initialiseCoco(); } catch (error) { status("#coco-status", `Could not start COCO import: ${error.message}`); button.disabled = false; } });
 initialiseCoco().catch(error => status("#coco-status", `COCO dataset unavailable: ${error.message}`));

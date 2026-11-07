@@ -38,19 +38,21 @@ def test_frontend_includes_classification_and_ann_workflows():
     assert "/tabular/predictions" in script
 
 
-def test_frontend_includes_coco_image_viewer_without_bbox_overlay():
+def test_frontend_includes_coco_modal_with_optional_bbox_overlay():
     source = Path("app/static/index.html").read_text()
     script = Path("app/static/app.js").read_text()
 
     assert "Image Viewer" in source
     assert "All objects" in source
-    assert "Show bounding boxes" not in source
-    assert "coco-canvas" not in source
+    assert 'id="coco-modal"' in source
+    assert "Show bounding boxes &amp; labels" in source
+    assert "coco-canvas" in source
     assert "/coco/status" in script
     assert "/coco/images" in script
-    assert "cocoBoxesVisible" not in script
+    assert "cocoBoxesVisible" in script
     assert "selectCocoImage(item)" in script
-    assert "/coco/images/${encodeURIComponent(key)}" not in script
+    assert "/coco/images/${encodeURIComponent(image.image_key)}" in script
+    assert "cocoModal.showModal()" in script
     assert "coco-download-progress" in source
     assert "Downloading ${download.artifact}" in script
     assert "coco-start-import" in source

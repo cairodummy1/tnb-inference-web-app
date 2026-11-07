@@ -46,6 +46,7 @@ def test_frontend_includes_coco_modal_with_optional_bbox_overlay():
     assert "All objects" in source
     assert 'id="coco-modal"' in source
     assert "Show bounding boxes &amp; labels" in source
+    assert 'class="modal-close"' in source
     assert "coco-canvas" in source
     assert "/coco/status" in script
     assert "/coco/images" in script

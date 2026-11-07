@@ -123,9 +123,12 @@ footer { padding-top: 32px; color: #71879c; text-align: center; font-size: .72re
 .coco-modal-header { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .coco-modal-header h3 { margin: 0; color: #073f78; font-size: 1.15rem; }
 .coco-modal-header .eyebrow { margin-bottom: 5px; }
-.icon-button { display: grid; width: 36px !important; height: 36px; place-items: center; flex: 0 0 auto; padding: 0; border-radius: 50%; font-size: 1.4rem; line-height: 1; }
+.modal-close { display: inline-flex; width: auto !important; align-items: center; justify-content: center; gap: 7px; flex: 0 0 auto; padding: 9px 12px; border: 1px solid #bfd4e5; border-radius: 8px; background: #fff; box-shadow: none; color: #315676; font-size: .78rem; }
+.modal-close:hover { background: #edf5fb; color: #0067b5; filter: none; transform: none; }
+.modal-close span { font-size: 1.2rem; line-height: .8; }
 .coco-modal-content { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, .55fr); gap: 18px; align-items: start; }
 .coco-modal-content .detections-card { min-height: 100%; }
+.coco-modal-content .coco-image-wrap { justify-self: start; width: fit-content; max-width: 100%; }
 #coco-labels { display: grid; gap: 7px; padding: 0; margin: 14px 0 0; list-style: none; }
 #coco-labels li { padding: 7px 9px; border-radius: 7px; background: #f5faff; color: #315676; font-size: .74rem; }
 @media (max-width: 760px) { .coco-thumbnails { grid-template-columns: repeat(2, minmax(0, 1fr)); } .coco-modal { padding: 18px; } .coco-modal-content { grid-template-columns: 1fr; } .coco-controls { display: grid; grid-template-columns: 1fr; } .coco-controls button { width: 100%; } }

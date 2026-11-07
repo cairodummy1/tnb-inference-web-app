@@ -38,15 +38,19 @@ def test_frontend_includes_classification_and_ann_workflows():
     assert "/tabular/predictions" in script
 
 
-def test_frontend_includes_coco_browser_and_bbox_toggle():
+def test_frontend_includes_coco_image_viewer_without_bbox_overlay():
     source = Path("app/static/index.html").read_text()
     script = Path("app/static/app.js").read_text()
 
-    assert "COCO 2017 image browser" in source
-    assert "Show bounding boxes" in source
+    assert "Image Viewer" in source
+    assert "All objects" in source
+    assert "Show bounding boxes" not in source
+    assert "coco-canvas" not in source
     assert "/coco/status" in script
     assert "/coco/images" in script
-    assert "cocoBoxesVisible" in script
+    assert "cocoBoxesVisible" not in script
+    assert "selectCocoImage(item)" in script
+    assert "/coco/images/${encodeURIComponent(key)}" not in script
     assert "coco-download-progress" in source
     assert "Downloading ${download.artifact}" in script
     assert "coco-start-import" in source
@@ -61,3 +65,7 @@ def test_frontend_uses_accessible_workflow_tabs():
     assert 'role="tabpanel"' in source
     assert "activateTab" in script
     assert "ArrowRight" in script
+    assert 'data-tab="coco"' not in source
+    assert source.count('role="tab"') == 3
+    assert "COCO Dataset" in source
+    assert "AI INFERENCE" in source

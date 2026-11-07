@@ -73,15 +73,20 @@ button b { font-size: 1.2rem; }
 #detections { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
 #detections li { padding: 9px 10px; border: 1px solid #d3e2ed; border-radius: 8px; background: #f5faff; color: #315676; font-size: .76rem; }
 footer { padding-top: 32px; color: #71879c; text-align: center; font-size: .72rem; }
-.workflow-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0 0 8px; padding: 6px; border: 1px solid #d5e1eb; border-radius: 14px; background: #fff; box-shadow: 0 8px 20px #174a760c; }
+.primary-section { padding: 30px 0; border-top: 1px solid #d8e3ed; }
+.inference-section { margin-top: 8px; }
+.workflow-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 0 20px; padding: 6px; border: 1px solid #d5e1eb; border-radius: 14px; background: #fff; box-shadow: 0 8px 20px #174a760c; }
 .workflow-tabs > button { width: 100% !important; min-width: 0; padding: 10px 14px; border-radius: 9px; background: transparent; box-shadow: none; color: #526d86; font-size: .78rem; white-space: nowrap; }
 .workflow-tabs button:hover { background: #edf5fb; color: #0067b5; filter: none; }
 .workflow-tabs button[aria-selected="true"] { background: #0067b5; color: #fff; box-shadow: 0 5px 12px #0067b52b; }
 .workflow-tabs button:focus-visible { outline: 3px solid #e72d21; outline-offset: 2px; }
-.workflow-section { padding: 28px 0; border-top: 1px solid #d8e3ed; }
+.workflow-panel { padding: 4px 0 12px; }
 .section-heading { max-width: 680px; margin: 0 0 18px; }
 .section-heading h2 { margin: 0; color: #073f78; font-size: 1.55rem; letter-spacing: -.035em; }
 .section-heading > p:last-child, .info-card p { color: #526d86; font-size: .86rem; line-height: 1.55; }
+.panel-heading { margin: 0 0 18px; }
+.panel-heading h3 { margin: 0; color: #073f78; font-size: 1.25rem; letter-spacing: -.03em; }
+.panel-heading p { margin: 6px 0 0; color: #526d86; font-size: .86rem; }
 .info-card h3, .training-panel h3 { margin: 0 0 10px; color: #073f78; font-size: 1rem; }
 .job-status { margin: 14px 0 0; padding: 10px 13px; border-radius: 10px; background: #edf5fb; color: #456681; font-size: .8rem; }
 .prediction-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -109,16 +114,11 @@ footer { padding-top: 32px; color: #71879c; text-align: center; font-size: .72re
 .coco-thumbnail img { width: 100%; aspect-ratio: 1.35; object-fit: cover; background: #eaf1f6; }
 .coco-thumbnail span { padding: 7px 8px; color: #315676; font-size: .68rem; }
 .coco-pager { display: flex; justify-content: space-between; gap: 12px; margin: 16px 0; }
-.coco-pager button, .coco-detail-heading button { width: auto; }
-.coco-detail { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, .55fr); gap: 18px; }
+.coco-pager button { width: auto; }
+.coco-viewer { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, .55fr); gap: 18px; }
 .coco-image-wrap { position: relative; display: inline-block; overflow: hidden; border: 1px solid #bfd4e5; border-radius: 16px; background: #eaf1f6; line-height: 0; }
 .coco-image-wrap img { display: block; max-width: 100%; height: auto; }
-.coco-image-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.coco-detail-heading { display: flex; align-items: start; justify-content: space-between; gap: 10px; }
-.coco-detail-heading h3 { margin: 0; }
-#coco-labels { display: grid; gap: 7px; padding: 0; margin: 14px 0 0; list-style: none; }
-#coco-labels li { padding: 7px 9px; border-radius: 7px; background: #f5faff; color: #315676; font-size: .74rem; }
-@media (max-width: 760px) { .coco-thumbnails { grid-template-columns: repeat(2, minmax(0, 1fr)); } .coco-detail { grid-template-columns: 1fr; } .coco-controls { display: grid; grid-template-columns: 1fr; } .coco-controls button { width: 100%; } }
+@media (max-width: 760px) { .coco-thumbnails { grid-template-columns: repeat(2, minmax(0, 1fr)); } .coco-viewer { grid-template-columns: 1fr; } .coco-controls { display: grid; grid-template-columns: 1fr; } .coco-controls button { width: 100%; } }
 
 @media (max-width: 760px) { .hero { padding: 45px 0 30px; } .hero-orb { width: 105px; height: 105px; margin-left: 10px; } .workspace, .result-grid { grid-template-columns: 1fr; } .info-card { display: none; } }
 @media (max-width: 560px) { .brand { gap: 10px; } .brand-logo { width: 124px; } .brand-name { padding-left: 10px; font-size: .92rem; } }

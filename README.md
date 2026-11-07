@@ -22,7 +22,7 @@ Open [http://localhost:8000](http://localhost:8000). The worker downloads the mo
 
 The dataset browser imports official COCO 2017 train and validation object-detection data only. It downloads approximately 123k images to `data/coco/images`, saves categories/images/annotations in MongoDB, and serves JPEGs through FastAPI. Reserve roughly 50 GB of local disk space for sequential archive download and extraction.
 
-Start the normal stack first, then open the **COCO Dataset** tab and select **Start full COCO import**. FastAPI queues the long-running job for the dedicated RQ COCO worker, so the API, image inference, and ANN training remain available. The import is resumable and safe to retry after interruption; the tab shows queue/download progress and completion state.
+Start the normal stack first, then open the top **COCO Dataset** section and select **Start full COCO import**. FastAPI queues the long-running job for the dedicated RQ COCO worker, so the API, image inference, and ANN training remain available. The import is resumable and safe to retry after interruption; the section shows queue/download progress and completion state.
 
 ### NVIDIA GPU mode
 
@@ -62,7 +62,7 @@ Results expire after one hour; failed-job records remain for one day. Redis is p
 - **Torchvision SSDLite320 MobileNetV3-Large (`DEFAULT` / COCO_V1)** is an official public COCO-trained model. It is only 3.4M parameters and 0.58 GFLOPS, making it a practical CPU-first demo. The trade-off is lower COCO box mAP (25.1) than the heavier Faster R-CNN ResNet-50 FPN V2 (46.7 mAP, 43.7M parameters, 280.37 GFLOPS).
 - **Torchvision ResNet-50 (`DEFAULT` / ImageNet-1K)** returns the top five predictions from ImageNet's 1,000 general categories. It is not a custom TNB classifier; fine-tuning is required for domain-specific labels.
 - **Custom ANN** accepts numeric feature columns only. The browser previews the uploaded CSV/XLSX dataset, lets the user choose one target column and classification or regression, then trains a 128→64 PyTorch MLP. The latest successful model stores its feature order, scaling data, target/classes, metrics, source file, and training settings so the prediction form always matches its schema.
-- **COCO 2017 browser** stores categories, image metadata, and detection annotations in MongoDB. Image JPEGs remain in the server’s `data/coco/images` directory, and MongoDB stores a FastAPI image URL rather than binary image data.
+- **COCO 2017 Image Viewer** stores categories, image metadata, and detection annotations in MongoDB. It filters full images by class or all objects without drawing annotation boxes; JPEGs remain in the server’s `data/coco/images` directory and MongoDB stores a FastAPI image URL rather than binary image data.
 - The image worker preloads its public CPU models once and uses RQ's same-process worker, so PyTorch is not forked after initialization. A separate training worker prevents long ANN training from blocking image jobs. GPU Compose grants both workers NVIDIA GPU access.
 
 The model recognizes the 80 standard COCO object categories; it is not a custom detector. Adjust `SCORE_THRESHOLD` in `compose.yaml` to change the 0.5 display cutoff.

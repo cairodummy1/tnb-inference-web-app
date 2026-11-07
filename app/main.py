@@ -43,6 +43,11 @@ def index() -> FileResponse:
     return FileResponse("app/static/index.html")
 
 
+@app.get("/inference", include_in_schema=False)
+def inference_page() -> FileResponse:
+    return FileResponse("app/static/inference.html")
+
+
 @app.get("/health")
 def health() -> dict:
     try:

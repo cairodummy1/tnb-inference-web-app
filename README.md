@@ -16,13 +16,13 @@ Prerequisites: Docker Compose and roughly 3 GB of free disk/RAM for the first im
 docker compose up --build
 ```
 
-Open [http://localhost:8000](http://localhost:8000). The worker downloads the model weights only once and retains them in a Docker volume. Stop with `Ctrl+C`; use `docker compose down` to remove containers while preserving Redis jobs/results and model weights.
+Open [http://localhost:8000](http://localhost:8000) for the COCO Image Viewer, or [http://localhost:8000/inference](http://localhost:8000/inference) for object detection, CNN classification, and ANN workflows. The worker downloads model weights only once and retains them in a Docker volume. Stop with `Ctrl+C`; use `docker compose down` to remove containers while preserving Redis jobs/results and model weights.
 
 ### Import the complete COCO 2017 dataset
 
 The dataset browser imports official COCO 2017 train and validation object-detection data only. It downloads approximately 123k images to `data/coco/images`, saves categories/images/annotations in MongoDB, and serves JPEGs through FastAPI. Reserve roughly 50 GB of local disk space for sequential archive download and extraction.
 
-Start the normal stack first, then open the top **COCO Dataset** section and select **Start full COCO import**. FastAPI queues the long-running job for the dedicated RQ COCO worker, so the API, image inference, and ANN training remain available. The import is resumable and safe to retry after interruption; the section shows queue/download progress and completion state.
+Start the normal stack first, then open the **Image Viewer** landing page and select **Start full COCO import**. FastAPI queues the long-running job for the dedicated RQ COCO worker, so the API, image inference, and ANN training remain available. The import is resumable and safe to retry after interruption; the viewer shows queue/download progress and completion state.
 
 ### NVIDIA GPU mode
 

@@ -13,21 +13,23 @@ def test_frontend_stops_for_terminal_states_and_has_timeout():
 
 def test_tnb_branding_and_public_assets_are_available():
     client = TestClient(app)
-    page = client.get("/")
+    viewer = client.get("/")
+    inference = client.get("/inference")
 
     assert app.title == "TNB Inference"
-    assert page.status_code == 200
-    assert "<title>TNB Inference</title>" in page.text
-    assert "TNB Inference" in page.text
-    assert "VisionLab" not in page.text
-    assert "COCO Object Detector" not in page.text
+    assert viewer.status_code == 200
+    assert inference.status_code == 200
+    assert "Image Viewer" in viewer.text
+    assert "AI Inference" in inference.text
+    assert "VisionLab" not in viewer.text
+    assert "COCO Object Detector" not in inference.text
     for asset in ("logo.png", "icon.png", "favicon.ico"):
         response = client.get(f"/public/{asset}")
         assert response.status_code == 200
 
 
 def test_frontend_includes_classification_and_ann_workflows():
-    source = Path("app/static/index.html").read_text()
+    source = Path("app/static/inference.html").read_text()
     script = Path("app/static/app.js").read_text()
 
     assert "ResNet-50" in source
@@ -40,7 +42,7 @@ def test_frontend_includes_classification_and_ann_workflows():
 
 def test_frontend_includes_coco_modal_with_optional_bbox_overlay():
     source = Path("app/static/index.html").read_text()
-    script = Path("app/static/app.js").read_text()
+    script = Path("app/static/viewer.js").read_text()
 
     assert "Image Viewer" in source
     assert "All objects" in source
@@ -61,7 +63,7 @@ def test_frontend_includes_coco_modal_with_optional_bbox_overlay():
 
 
 def test_frontend_uses_accessible_workflow_tabs():
-    source = Path("app/static/index.html").read_text()
+    source = Path("app/static/inference.html").read_text()
     script = Path("app/static/app.js").read_text()
 
     assert 'role="tablist"' in source
@@ -70,5 +72,16 @@ def test_frontend_uses_accessible_workflow_tabs():
     assert "ArrowRight" in script
     assert 'data-tab="coco"' not in source
     assert source.count('role="tab"') == 3
-    assert "COCO Dataset" in source
     assert "AI INFERENCE" in source
+
+
+def test_pages_use_separate_clients_and_active_navigation():
+    viewer = Path("app/static/index.html").read_text()
+    inference = Path("app/static/inference.html").read_text()
+
+    assert "/static/viewer.js" in viewer
+    assert "/static/app.js" not in viewer
+    assert "/static/app.js" in inference
+    assert "/static/viewer.js" not in inference
+    assert 'href="/" aria-current="page"' in viewer
+    assert 'href="/inference" aria-current="page"' in inference

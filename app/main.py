@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -17,8 +18,9 @@ from rq import Queue
 from rq.job import Job
 from rq.exceptions import NoSuchJobError
 
-from app.queueing import has_coco_worker, has_inference_worker, has_training_worker, redis_connection
+from app.queueing import has_coco_worker, has_inference_worker, has_training_worker, has_viewer_worker, redis_connection
 from app.coco import database as coco_database, image_details as coco_image_details, image_root as coco_image_root, import_coco2017, list_images as coco_list_images, status as coco_status
+from app import viewer
 from app.tabular import dataset_path, preview_dataset, predict_latest, train_tabular_model
 from app.worker import classify, detect
 
@@ -32,6 +34,8 @@ redis = redis_connection()
 queue = Queue("inference", connection=redis, default_timeout=300)
 training_queue = Queue("training", connection=redis, default_timeout=3600)
 coco_queue = Queue("coco-import", connection=redis, default_timeout=86400)
+viewer_queue = Queue("viewer-import", connection=redis, default_timeout=86400)
+MAX_VIEWER_ARCHIVE_BYTES = int(os.environ.get("VIEWER_MAX_ARCHIVE_BYTES", str(2 * 1024 * 1024 * 1024)))
 
 app = FastAPI(title="TNB Inference")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -214,6 +218,96 @@ def get_coco_database():
         return db
     except Exception as error:
         raise HTTPException(status_code=503, detail="COCO catalog database is unavailable.") from error
+
+
+def get_viewer_database():
+    try:
+        db = viewer.database()
+        db.command("ping")
+        return db
+    except Exception as error:
+        raise HTTPException(status_code=503, detail="Image viewer catalog database is unavailable.") from error
+
+
+def enqueue_viewer_import(function, *args) -> dict:
+    db = get_viewer_database()
+    current = viewer.status(db)
+    if current["status"] in {"queued", "running"}:
+        raise HTTPException(status_code=409, detail="An image viewer import is already queued or running.")
+    try:
+        if not has_viewer_worker(redis):
+            raise HTTPException(status_code=503, detail="No image viewer import worker is available. Try again shortly.")
+        job = viewer_queue.enqueue(function, *args, result_ttl=604800, failure_ttl=604800)
+    except RedisError as error:
+        raise HTTPException(status_code=503, detail="Could not queue the image viewer import.") from error
+    db.viewer_imports.update_one(
+        {"_id": "active"},
+        {"$set": {"status": "queued", "job_id": job.id, "error": None, "download": None, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    return {"job_id": job.id, "status": "queued"}
+
+
+@app.get("/viewer/status")
+def get_viewer_status() -> dict:
+    return viewer.status(get_viewer_database())
+
+
+@app.post("/viewer/import-jobs", status_code=202)
+def create_default_viewer_import_job() -> dict:
+    return enqueue_viewer_import(viewer.import_default_dataset)
+
+
+@app.post("/viewer/datasets", status_code=202)
+async def upload_viewer_dataset(dataset: UploadFile = File(...)) -> dict:
+    if Path(dataset.filename or "").suffix.lower() != ".zip":
+        raise HTTPException(status_code=400, detail="Upload a Pascal VOC dataset ZIP file.")
+    filename = f"{uuid4().hex}.zip"
+    saved = viewer.upload_dir() / filename
+    size = 0
+    try:
+        with saved.open("wb") as output:
+            while chunk := await dataset.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_VIEWER_ARCHIVE_BYTES:
+                    raise HTTPException(status_code=413, detail="Dataset archive is too large.")
+                output.write(chunk)
+        if not size:
+            raise HTTPException(status_code=400, detail="Please choose a dataset archive.")
+        with zipfile.ZipFile(saved) as archive:
+            viewer._safe_members(archive)
+    except (zipfile.BadZipFile, ValueError) as error:
+        saved.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=f"Invalid dataset archive: {error}") from error
+    except HTTPException:
+        saved.unlink(missing_ok=True)
+        raise
+    return enqueue_viewer_import(viewer.import_uploaded_dataset, filename, dataset.filename or "Custom VOC dataset")
+
+
+@app.get("/viewer/images")
+def get_viewer_images(
+    category_id: int | None = Query(default=None, ge=1),
+    cursor: str | None = None,
+    limit: int = Query(default=24, ge=1, le=100),
+) -> dict:
+    return viewer.list_images(get_viewer_database(), category_id, cursor, limit)
+
+
+@app.get("/viewer/images/{image_id}")
+def get_viewer_image(image_id: str) -> dict:
+    result = viewer.image_details(get_viewer_database(), image_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Image was not found.")
+    return result
+
+
+@app.get("/viewer/images/{image_id}/file")
+def get_viewer_image_file(image_id: str) -> FileResponse:
+    path = viewer.image_path(get_viewer_database(), image_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Image file is unavailable on this server.")
+    return FileResponse(path)
 
 
 @app.get("/coco/status")

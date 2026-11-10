@@ -40,26 +40,28 @@ def test_frontend_includes_classification_and_ann_workflows():
     assert "/tabular/predictions" in script
 
 
-def test_frontend_includes_coco_modal_with_optional_bbox_overlay():
+def test_frontend_includes_voc_modal_with_optional_bbox_overlay():
     source = Path("app/static/index.html").read_text()
     script = Path("app/static/viewer.js").read_text()
 
     assert "Image Viewer" in source
     assert "All objects" in source
-    assert 'id="coco-modal"' in source
+    assert 'id="viewer-modal"' in source
     assert "Show bounding boxes &amp; labels" in source
     assert 'class="modal-close"' in source
-    assert "coco-canvas" in source
-    assert "/coco/status" in script
-    assert "/coco/images" in script
-    assert "cocoBoxesVisible" in script
-    assert "selectCocoImage(item)" in script
-    assert "/coco/images/${encodeURIComponent(image.image_key)}" in script
-    assert "cocoModal.showModal()" in script
-    assert "coco-download-progress" in source
+    assert "viewer-canvas" in source
+    assert "/viewer/status" in script
+    assert "/viewer/images" in script
+    assert "viewerBoxesVisible" in script
+    assert "selectViewerImage(item)" in script
+    assert "/viewer/images/${encodeURIComponent(image.image_id)}" in script
+    assert "viewerModal.showModal()" in script
+    assert "viewer-download-progress" in source
     assert "Downloading ${download.artifact}" in script
-    assert "coco-start-import" in source
-    assert "/coco/import-jobs" in script
+    assert "viewer-start-import" in source
+    assert "/viewer/import-jobs" in script
+    assert "coco" not in source.lower()
+    assert "coco" not in script.lower()
 
 
 def test_frontend_uses_accessible_workflow_tabs():
@@ -73,6 +75,7 @@ def test_frontend_uses_accessible_workflow_tabs():
     assert 'data-tab="coco"' not in source
     assert source.count('role="tab"') == 3
     assert "AI INFERENCE" in source
+    assert "coco" not in source.lower()
 
 
 def test_pages_use_separate_clients_and_active_navigation():

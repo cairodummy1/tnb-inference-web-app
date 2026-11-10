@@ -26,3 +26,7 @@ def has_training_worker(connection: Redis) -> bool:
 
 def has_coco_worker(connection: Redis) -> bool:
     return has_worker(connection, "coco-import")
+
+
+def has_viewer_worker(connection: Redis) -> bool:
+    return has_worker(connection, "viewer-import")

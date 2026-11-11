@@ -54,6 +54,7 @@ def test_frontend_includes_voc_modal_with_optional_bbox_overlay():
     assert "/viewer/images" in script
     assert "viewerBoxesVisible" in script
     assert 'canvas.removeAttribute("hidden")' in script
+    assert "hideViewerBoxes" in script
     assert "selectViewerImage(item)" in script
     assert "/viewer/images/${encodeURIComponent(image.image_id)}" in script
     assert "viewerModal.showModal()" in script
@@ -64,6 +65,7 @@ def test_frontend_includes_voc_modal_with_optional_bbox_overlay():
     assert "coco" not in source.lower()
     assert "coco" not in script.lower()
     assert "z-index: 1" in Path("app/static/style.css").read_text()
+    assert "canvas[hidden]" in Path("app/static/style.css").read_text()
 
 
 def test_frontend_uses_accessible_workflow_tabs():

@@ -40,6 +40,27 @@ def test_frontend_includes_classification_and_ann_workflows():
     assert "/tabular/predictions" in script
 
 
+def test_detection_results_stay_in_the_existing_upload_and_model_cards():
+    source = Path("app/static/inference.html").read_text()
+    script = Path("app/static/app.js").read_text()
+
+    assert 'id="detection-canvas"' in source
+    assert 'id="detection-output"' in source
+    assert 'id="detection-result"' not in source
+    assert "previewDetectionImage" in script
+    assert 'querySelector("#detection-canvas")' in script
+
+
+def test_classification_results_stay_in_the_existing_upload_and_model_cards():
+    source = Path("app/static/inference.html").read_text()
+    script = Path("app/static/app.js").read_text()
+
+    assert 'id="classification-canvas"' in source
+    assert 'id="classification-output"' in source
+    assert 'id="classification-result"' not in source
+    assert "previewClassificationImage" in script
+
+
 def test_frontend_includes_voc_modal_with_optional_bbox_overlay():
     source = Path("app/static/index.html").read_text()
     script = Path("app/static/viewer.js").read_text()

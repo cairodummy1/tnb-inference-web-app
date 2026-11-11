@@ -16,7 +16,7 @@ docker compose up --build
 
 Open [http://localhost:8000](http://localhost:8000) for the transmission-line image viewer, or [http://localhost:8000/inference](http://localhost:8000/inference) for inference and tabular workflows.
 
-MongoDB's web UI is available at [http://localhost:8081](http://localhost:8081). Mongo Express connects to the `mongodb` Compose service automatically; its port is bound to localhost only.
+DBX's web UI is available at [http://localhost:4224](http://localhost:4224), and Mongo Express at [http://localhost:8081](http://localhost:8081); both are bound to localhost and connect to the `mongodb` Compose service. In DBX, add a MongoDB connection using host `mongodb`, port `27017`, no authentication, and database `tnb_inference`.
 
 ## Transmission-line image viewer
 

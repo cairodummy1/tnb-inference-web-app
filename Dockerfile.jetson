@@ -1,0 +1,15 @@
+ARG JETSON_PYTORCH_IMAGE=dustynv/l4t-pytorch:r36.4.0
+FROM ${JETSON_PYTORCH_IMAGE}
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN env -u PIP_EXTRA_INDEX_URL PIP_CONFIG_FILE=/dev/null python3 -m pip install --no-cache-dir --index-url https://pypi.org/simple -r requirements.txt \
+    && ln -sf "$(command -v python3)" /usr/local/bin/python \
+    && python3 -c "import torch, torchvision; print(f'PyTorch {torch.__version__}, CUDA build: {torch.version.cuda}, torchvision {torchvision.__version__}')"
+
+COPY app ./app

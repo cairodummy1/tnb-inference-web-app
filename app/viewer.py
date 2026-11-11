@@ -112,14 +112,30 @@ def _scale_annotations(annotations: list[dict], source_width: int, source_height
 
 def _download(url: str, destination: Path, progress) -> None:
     temporary = destination.with_suffix(".part")
-    with urllib.request.urlopen(url) as response, temporary.open("wb") as output:
-        total = int(response.headers.get("Content-Length", "0"))
-        downloaded = 0
-        while chunk := response.read(1024 * 1024):
-            output.write(chunk)
-            downloaded += len(chunk)
-            progress(downloaded, total, round(downloaded / total * 100, 1) if total else None)
-    temporary.replace(destination)
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        complete = False
+        try:
+            with urllib.request.urlopen(url) as response, temporary.open("wb") as output:
+                total = int(response.headers.get("Content-Length", "0"))
+                downloaded = 0
+                while chunk := response.read(1024 * 1024):
+                    output.write(chunk)
+                    downloaded += len(chunk)
+                    progress(downloaded, total, round(downloaded / total * 100, 1) if total else None)
+            if total and downloaded != total:
+                if attempt + 1 == max_attempts:
+                    raise ValueError(
+                        f"Dataset download was incomplete after {max_attempts} attempts "
+                        f"({downloaded} of {total} bytes received)."
+                    )
+                continue
+            temporary.replace(destination)
+            complete = True
+            return
+        finally:
+            if not complete:
+                temporary.unlink(missing_ok=True)
 
 
 def _set_status(db, **fields) -> None:

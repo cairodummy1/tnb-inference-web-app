@@ -16,6 +16,8 @@ docker compose up --build
 
 Open [http://localhost:8000](http://localhost:8000) for the transmission-line image viewer, or [http://localhost:8000/inference](http://localhost:8000/inference) for inference and tabular workflows.
 
+MongoDB's web UI is available at [http://localhost:8081](http://localhost:8081). Mongo Express connects to the `mongodb` Compose service automatically; its port is bound to localhost only.
+
 ## Transmission-line image viewer
 
 The landing-page viewer uses the supplied public Backblaze archive:
@@ -63,11 +65,28 @@ The script uploads to the running local API, queues the import, waits for comple
 
 ## NVIDIA GPU mode
 
-The normal command is CPU-only. For an NVIDIA GPU, install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), then run:
+The normal command is CPU-only. For an NVIDIA GPU, install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), configure it as Docker's `nvidia` runtime, and restart Docker:
+
+```bash
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+```
+
+Then run:
 
 ```bash
 docker compose -f compose.yaml -f compose.gpu.yaml up --build
 ```
+
+### Jetson Orin
+
+Do not use `compose.gpu.yaml` on an Orin: its standard CUDA PyTorch wheel may not include the Orin GPU's `sm_87` architecture. Use the Jetson-specific PyTorch/torchvision image instead:
+
+```bash
+docker compose -f compose.yaml -f compose.jetson.yaml up --build
+```
+
+The Jetson overlay defaults to `dustynv/l4t-pytorch:r36.4.0` (ARM64). If your installed L4T/JetPack release requires another compatible image, set `JETSON_PYTORCH_IMAGE` to that image tag before building. At startup, each worker checks CUDA on the actual GPU and runs `torchvision` NMS on CUDA tensors before joining its queue; an incompatible image fails clearly rather than registering as ready.
 
 ## Development tests
 

@@ -75,6 +75,34 @@ def test_explicit_cuda_rejects_an_unsupported_architecture(monkeypatch):
         worker.resolve_device()
 
 
+def test_cuda_accepts_an_empty_architecture_list(monkeypatch):
+    monkeypatch.setenv("INFERENCE_DEVICE", "cuda")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda: (8, 7))
+    monkeypatch.setattr(torch.cuda, "get_arch_list", lambda: [])
+    assert worker.resolve_device().type == "cuda"
+
+
+def test_validate_cuda_runtime_executes_torchvision_nms(monkeypatch):
+    calls = {}
+    monkeypatch.setattr(worker.torch, "tensor", lambda values, **kwargs: (values, kwargs))
+    monkeypatch.setattr(
+        worker,
+        "nms",
+        lambda boxes, scores, threshold: calls.update(
+            boxes=boxes, scores=scores, threshold=threshold
+        ),
+    )
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda device: calls.update(device=device))
+
+    worker.validate_cuda_runtime(torch.device("cuda"))
+
+    assert calls["boxes"][1]["device"].type == "cuda"
+    assert calls["scores"][1]["device"].type == "cuda"
+    assert calls["threshold"] == 0.5
+    assert calls["device"].type == "cuda"
+
+
 def test_detect_returns_json_safe_detection(monkeypatch, tmp_path):
     image_path = tmp_path / "sample.jpg"
     Image.new("RGB", (16, 12), "white").save(image_path)

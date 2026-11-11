@@ -11,6 +11,7 @@ from torchvision.models.detection import (
     ssdlite320_mobilenet_v3_large,
 )
 from torchvision.models import ResNet50_Weights, resnet50
+from torchvision.ops import nms
 
 _model = None
 _weights = None
@@ -37,12 +38,31 @@ def resolve_device() -> torch.device:
         major, minor = torch.cuda.get_device_capability()
         required_arch = f"sm_{major}{minor}"
         supported_arches = set(torch.cuda.get_arch_list())
-        if required_arch not in supported_arches and f"compute_{major}{minor}" not in supported_arches:
+        if supported_arches and required_arch not in supported_arches and (
+            f"compute_{major}{minor}" not in supported_arches
+        ):
             raise RuntimeError(
                 f"This PyTorch CUDA build does not support {required_arch}. "
-                "Rebuild with the current compose.gpu.yaml (CUDA 12.8 / PyTorch 2.7.1 or newer)."
+                "Use a PyTorch build compiled for this GPU; Jetson Orin users can use "
+                "compose.jetson.yaml."
             )
     return torch.device("cuda" if cuda_available else "cpu")
+
+
+def validate_cuda_runtime(device: torch.device) -> None:
+    """Verify CUDA tensor execution and torchvision's CUDA NMS before serving jobs."""
+    if device.type != "cuda":
+        return
+    try:
+        boxes = torch.tensor([[0, 0, 2, 2], [0, 0, 1, 1]], device=device, dtype=torch.float32)
+        scores = torch.tensor([0.9, 0.8], device=device)
+        nms(boxes, scores, 0.5)
+        torch.cuda.synchronize(device)
+    except (RuntimeError, NotImplementedError) as error:
+        raise RuntimeError(
+            "CUDA is visible, but PyTorch/torchvision could not execute the CUDA NMS operation. "
+            "Use a Jetson-compatible PyTorch and torchvision image."
+        ) from error
 
 
 def preload_model() -> None:

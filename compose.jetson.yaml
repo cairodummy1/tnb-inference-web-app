@@ -1,0 +1,28 @@
+# Jetson Orin workers. The base image includes ARM64 PyTorch/torchvision
+# built for Jetson GPUs, including sm_87.
+services:
+  worker:
+    image: simple-inference-worker-jetson
+    build:
+      context: .
+      dockerfile: Dockerfile.jetson
+      args:
+        JETSON_PYTORCH_IMAGE: ${JETSON_PYTORCH_IMAGE:-dustynv/l4t-pytorch:r36.4.0}
+    environment:
+      INFERENCE_DEVICE: cuda
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    runtime: nvidia
+
+  training-worker:
+    image: simple-inference-worker-jetson
+    build:
+      context: .
+      dockerfile: Dockerfile.jetson
+      args:
+        JETSON_PYTORCH_IMAGE: ${JETSON_PYTORCH_IMAGE:-dustynv/l4t-pytorch:r36.4.0}
+    environment:
+      INFERENCE_DEVICE: cuda
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    runtime: nvidia

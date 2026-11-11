@@ -149,7 +149,7 @@ footer { padding-top: 32px; color: #71879c; text-align: center; font-size: .72re
 #viewer-labels li[role="button"]:focus-visible { outline: 2px solid #0067b5; outline-offset: 2px; }
 @media (max-width: 760px) { .viewer-thumbnails { grid-template-columns: repeat(2, minmax(0, 1fr)); } .viewer-modal { padding: 18px; } .viewer-modal-content { grid-template-columns: 1fr; } .viewer-controls { display: grid; grid-template-columns: 1fr; } .viewer-controls button { width: 100%; } }
 
-@media (max-width: 760px) { .hero { padding: 45px 0 30px; } .hero-orb { width: 105px; height: 105px; margin-left: 10px; } .workspace, .result-grid { grid-template-columns: 1fr; } .info-card { display: none; } }
+@media (max-width: 760px) { .hero { padding: 45px 0 30px; } .hero-orb { width: 105px; height: 105px; margin-left: 10px; } .workspace, .result-grid { grid-template-columns: 1fr; } .info-card { display: none; } .viewer-section .info-card { display: block; } }
 @media (max-width: 760px) { .topbar { flex-wrap: wrap; } .page-nav { order: 3; width: 100%; margin-left: 0; } .page-nav a { flex: 1; text-align: center; } }
 @media (max-width: 560px) { .brand { gap: 10px; } .brand-logo { width: 124px; } .brand-name { padding-left: 10px; font-size: .92rem; } }
 @media (max-width: 480px) { .app-shell { width: min(100% - 24px, 1120px); padding-top: 16px; } .model-badge { font-size: .62rem; } .hero { min-height: 225px; } .hero h1 { font-size: 2.75rem; } .hero-orb { display: none; } .upload-card { padding: 18px; } .status-detail { display: none; } .brand-name { display: none; } .brand-logo { width: 142px; } }

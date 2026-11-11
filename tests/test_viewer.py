@@ -69,3 +69,29 @@ def test_voc_rejects_unsafe_zip_path(tmp_path):
     with zipfile.ZipFile(archive_path) as archive:
         with pytest.raises(ValueError, match="unsafe path"):
             viewer._safe_members(archive)
+
+
+def test_download_retries_when_response_ends_before_content_length(tmp_path, monkeypatch):
+    class Response:
+        headers = {"Content-Length": "6"}
+
+        def __init__(self, content):
+            self.content = content
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self, _size):
+            content, self.content = self.content, b""
+            return content
+
+    responses = iter((Response(b"zip"), Response(b"zip123")))
+    monkeypatch.setattr(viewer.urllib.request, "urlopen", lambda _url: next(responses))
+    destination = tmp_path / "dataset.zip"
+
+    viewer._download("https://example.test/dataset.zip", destination, lambda *_args: None)
+
+    assert destination.read_bytes() == b"zip123"

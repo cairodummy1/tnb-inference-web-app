@@ -10,7 +10,9 @@ services:
         TORCHVISION_VERSION: 0.22.1
     environment:
       INFERENCE_DEVICE: cuda
-    gpus: all
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    runtime: nvidia
 
   training-worker:
     image: simple-inference-worker-gpu
@@ -21,4 +23,6 @@ services:
         TORCHVISION_VERSION: 0.22.1
     environment:
       INFERENCE_DEVICE: cuda
-    gpus: all
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    runtime: nvidia

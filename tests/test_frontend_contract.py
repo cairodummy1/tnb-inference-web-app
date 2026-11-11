@@ -74,6 +74,8 @@ def test_frontend_includes_voc_modal_with_optional_bbox_overlay():
     assert "/viewer/status" in script
     assert "/viewer/images" in script
     assert "viewerBoxesVisible" in script
+    assert "viewerSelectedAnnotationIndex" in script
+    assert "aria-pressed" in script
     assert 'canvas.removeAttribute("hidden")' in script
     assert "hideViewerBoxes" in script
     assert "selectViewerImage(item)" in script
@@ -127,3 +129,5 @@ def test_legacy_image_viewer_is_available_as_a_separate_page():
     assert 'href="/image-viewer" aria-current="page"' in source
     assert "/coco/status" in script
     assert "/coco/images" in script
+    assert "selectedAnnotationIndex" in script
+    assert "aria-pressed" in script

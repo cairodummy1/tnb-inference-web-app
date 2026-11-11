@@ -143,6 +143,9 @@ footer { padding-top: 32px; color: #71879c; text-align: center; font-size: .72re
 .viewer-modal-content .viewer-image-wrap { justify-self: start; width: fit-content; max-width: 100%; }
 #viewer-labels { display: grid; gap: 7px; padding: 0; margin: 14px 0 0; list-style: none; }
 #viewer-labels li { padding: 7px 9px; border-radius: 7px; background: #f5faff; color: #315676; font-size: .74rem; }
+#viewer-labels button { width: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: inherit; font-size: inherit; text-align: left; }
+#viewer-labels button[aria-pressed="true"] { color: #0067b5; font-weight: 800; }
+#viewer-labels button:hover { color: #0067b5; filter: none; transform: none; }
 @media (max-width: 760px) { .viewer-thumbnails { grid-template-columns: repeat(2, minmax(0, 1fr)); } .viewer-modal { padding: 18px; } .viewer-modal-content { grid-template-columns: 1fr; } .viewer-controls { display: grid; grid-template-columns: 1fr; } .viewer-controls button { width: 100%; } }
 
 @media (max-width: 760px) { .hero { padding: 45px 0 30px; } .hero-orb { width: 105px; height: 105px; margin-left: 10px; } .workspace, .result-grid { grid-template-columns: 1fr; } .info-card { display: none; } }

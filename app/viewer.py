@@ -98,6 +98,18 @@ def _xml_record(archive: zipfile.ZipFile, member: zipfile.ZipInfo, names: set[st
     return image_path, {"filename": filename, "width": width, "height": height, "annotations": annotations}
 
 
+def _scale_annotations(annotations: list[dict], source_width: int, source_height: int, image_width: int, image_height: int) -> list[dict]:
+    """Map VOC coordinates to the dimensions of the extracted image file."""
+    x_scale, y_scale = image_width / source_width, image_height / source_height
+    return [
+        {**annotation, "bbox": [
+            annotation["bbox"][0] * x_scale, annotation["bbox"][1] * y_scale,
+            annotation["bbox"][2] * x_scale, annotation["bbox"][3] * y_scale,
+        ]}
+        for annotation in annotations
+    ]
+
+
 def _download(url: str, destination: Path, progress) -> None:
     temporary = destination.with_suffix(".part")
     with urllib.request.urlopen(url) as response, temporary.open("wb") as output:
@@ -164,13 +176,17 @@ def _import_archive(archive_path: Path, source: str) -> None:
             image_file = staging / relative_path
             try:
                 with Image.open(image_file) as image:
+                    image_width, image_height = image.size
                     image.verify()
             except (OSError, Image.DecompressionBombError) as error:
                 raise ValueError(f"Invalid image referenced by VOC annotation: {record['filename']}") from error
-            annotations = [{**annotation, "category_id": category_ids[annotation["label"]]} for annotation in record["annotations"]]
+            annotations = [
+                {**annotation, "category_id": category_ids[annotation["label"]]}
+                for annotation in _scale_annotations(record["annotations"], record["width"], record["height"], image_width, image_height)
+            ]
             images.append({
                 "image_id": image_id, "dataset_id": dataset_id, "filename": record["filename"],
-                "width": record["width"], "height": record["height"], "relative_path": relative_path,
+                "width": image_width, "height": image_height, "relative_path": relative_path,
                 "url": f"/viewer/images/{image_id}/file", "annotation_count": len(annotations),
                 "category_ids": sorted({annotation["category_id"] for annotation in annotations}), "annotations": annotations,
             })

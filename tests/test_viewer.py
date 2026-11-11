@@ -26,6 +26,14 @@ def test_voc_record_preserves_source_label_and_converts_box(tmp_path):
     assert payload["annotations"] == [{"label": "line_fault", "bbox": [10.0, 5.0, 70.0, 35.0]}]
 
 
+def test_voc_annotations_scale_to_the_extracted_image_dimensions():
+    annotations = [{"label": "fault", "bbox": [1574.0, 819.0, 530.0, 441.0]}]
+
+    scaled = viewer._scale_annotations(annotations, 3264, 2448, 816, 612)
+
+    assert scaled == [{"label": "fault", "bbox": [393.5, 204.75, 132.5, 110.25]}]
+
+
 def test_voc_record_skips_missing_image(tmp_path):
     archive_path = tmp_path / "voc.zip"
     make_archive(archive_path, image_path="other.jpg")

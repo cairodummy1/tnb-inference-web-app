@@ -52,6 +52,11 @@ def inference_page() -> FileResponse:
     return FileResponse("app/static/inference.html")
 
 
+@app.get("/image-viewer", include_in_schema=False)
+def image_viewer_page() -> FileResponse:
+    return FileResponse("app/static/coco_viewer.html")
+
+
 @app.get("/health")
 def health() -> dict:
     try:

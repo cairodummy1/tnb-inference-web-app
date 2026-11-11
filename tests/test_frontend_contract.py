@@ -113,3 +113,17 @@ def test_pages_use_separate_clients_and_active_navigation():
     assert "/static/viewer.js" not in inference
     assert 'href="/" aria-current="page"' in viewer
     assert 'href="/inference" aria-current="page"' in inference
+
+
+def test_legacy_image_viewer_is_available_as_a_separate_page():
+    client = TestClient(app)
+    source = Path("app/static/coco_viewer.html").read_text()
+    script = Path("app/static/coco_viewer.js").read_text()
+
+    assert client.get("/image-viewer").status_code == 200
+    assert "TNB Viewer" in source
+    assert "Image Viewer" in source
+    assert "AI Inference" in source
+    assert 'href="/image-viewer" aria-current="page"' in source
+    assert "/coco/status" in script
+    assert "/coco/images" in script

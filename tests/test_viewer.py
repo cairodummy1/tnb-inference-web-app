@@ -33,6 +33,19 @@ def test_voc_record_skips_missing_image(tmp_path):
         assert viewer._xml_record(archive, archive.getinfo("set/Annotations/sample.xml"), set(archive.namelist())) is None
 
 
+def test_voc_record_skips_empty_or_zero_dimension_annotations(tmp_path):
+    archive_path = tmp_path / "voc.zip"
+    no_size = """<annotation><filename>sample.jpg</filename><size><width>0</width><height>0</height></size><object><name>fault</name><bndbox><xmin>1</xmin><ymin>1</ymin><xmax>2</xmax><ymax>2</ymax></bndbox></object></annotation>"""
+    make_archive(archive_path, xml=no_size)
+    with zipfile.ZipFile(archive_path) as archive:
+        assert viewer._xml_record(archive, archive.getinfo("set/Annotations/sample.xml"), set(archive.namelist())) is None
+
+    no_objects = """<annotation><filename>sample.jpg</filename><size><width>100</width><height>50</height></size></annotation>"""
+    make_archive(archive_path, xml=no_objects)
+    with zipfile.ZipFile(archive_path) as archive:
+        assert viewer._xml_record(archive, archive.getinfo("set/Annotations/sample.xml"), set(archive.namelist())) is None
+
+
 def test_voc_record_rejects_malformed_xml(tmp_path):
     archive_path = tmp_path / "voc.zip"
     make_archive(archive_path, xml="<annotation>")

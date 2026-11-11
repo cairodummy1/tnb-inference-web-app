@@ -67,8 +67,11 @@ def _xml_record(archive: zipfile.ZipFile, member: zipfile.ZipInfo, names: set[st
         height = int(root.findtext("size/height") or "0")
     except (ET.ParseError, ValueError) as error:
         raise ValueError(f"Invalid VOC annotation: {member.filename}") from error
+    # Some source archives include placeholder XML files for images without
+    # usable annotations (for example, width/height are recorded as zero).
+    # They must not abort an otherwise valid import.
     if not filename or width <= 0 or height <= 0:
-        raise ValueError(f"VOC annotation is missing filename or image dimensions: {member.filename}")
+        return None
 
     annotation_path = PurePosixPath(member.filename)
     image_path = str(annotation_path.parent.parent / "JPEGImages" / filename)
@@ -90,6 +93,8 @@ def _xml_record(archive: zipfile.ZipFile, member: zipfile.ZipInfo, names: set[st
         if xmax <= xmin or ymax <= ymin:
             continue
         annotations.append({"label": label, "bbox": [xmin, ymin, xmax - xmin, ymax - ymin]})
+    if not annotations:
+        return None
     return image_path, {"filename": filename, "width": width, "height": height, "annotations": annotations}
 
 

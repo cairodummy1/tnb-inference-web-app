@@ -1,0 +1,162 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mongodb:
+    # MongoDB 7.0.41 includes the Linux 6.19 rseq compatibility fix; pin it
+    # because the floating MongoDB 8 tag can select an incompatible build.
+    image: mongo:7.0.41-jammy
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  dbx:
+    image: t8y2/dbx:latest
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4224:4224"
+    volumes:
+      - dbx-data:/app/data
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  mongo-express:
+    image: mongo-express:1.0.2-20
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongodb:27017/
+      ME_CONFIG_BASICAUTH: "false"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  api:
+    image: ${INFERENCE_IMAGE:?Set INFERENCE_IMAGE to your Docker Hub image}
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /data/uploads
+      TABULAR_DATASET_DIR: /data/tabular/datasets
+      TABULAR_MODEL_DIR: /data/tabular/models
+      MONGODB_URL: mongodb://mongodb:27017
+      COCO_DATABASE: tnb_inference
+      COCO_DATA_DIR: /data/coco
+      VIEWER_DATABASE: tnb_inference
+      VIEWER_DATA_DIR: /data/viewer
+    volumes:
+      - ./data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    image: ${INFERENCE_IMAGE:?Set INFERENCE_IMAGE to your Docker Hub image}
+    command: python -m app.run_worker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /data/uploads
+      SCORE_THRESHOLD: "0.5"
+      INFERENCE_DEVICE: cpu
+      TORCH_HOME: /models
+      PYTORCH_NVML_BASED_CUDA_CHECK: "1"
+    volumes:
+      - ./data:/data
+      - torch-model-cache:/models
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'from app.queueing import has_inference_worker, redis_connection; raise SystemExit(0 if has_inference_worker(redis_connection()) else 1)'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  training-worker:
+    image: ${INFERENCE_IMAGE:?Set INFERENCE_IMAGE to your Docker Hub image}
+    command: python -m app.run_training_worker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      INFERENCE_DEVICE: cpu
+      TABULAR_DATASET_DIR: /data/tabular/datasets
+      TABULAR_MODEL_DIR: /data/tabular/models
+    volumes:
+      - ./data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  cleanup:
+    image: ${INFERENCE_IMAGE:?Set INFERENCE_IMAGE to your Docker Hub image}
+    command: python -m app.cleanup
+    environment:
+      UPLOAD_DIR: /data/uploads
+      TABULAR_DATASET_DIR: /data/tabular/datasets
+      UPLOAD_RETENTION_SECONDS: "86400"
+      CLEANUP_INTERVAL_SECONDS: "3600"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+  coco-worker:
+    image: ${INFERENCE_IMAGE:?Set INFERENCE_IMAGE to your Docker Hub image}
+    command: python -m app.run_coco_worker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      MONGODB_URL: mongodb://mongodb:27017
+      COCO_DATABASE: tnb_inference
+      COCO_DATA_DIR: /data/coco
+    volumes:
+      - ./data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  viewer-worker:
+    image: ${INFERENCE_IMAGE:?Set INFERENCE_IMAGE to your Docker Hub image}
+    command: python -m app.run_viewer_worker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      MONGODB_URL: mongodb://mongodb:27017
+      VIEWER_DATABASE: tnb_inference
+      VIEWER_DATA_DIR: /data/viewer
+    volumes:
+      - ./data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  torch-model-cache:
+  mongo-data:
+  dbx-data:

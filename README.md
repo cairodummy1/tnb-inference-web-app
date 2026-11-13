@@ -88,6 +88,33 @@ docker compose -f compose.yaml -f compose.jetson.yaml up --build
 
 The Jetson overlay defaults to `dustynv/l4t-pytorch:r36.4.0` (ARM64). If your installed L4T/JetPack release requires another compatible image, set `JETSON_PYTORCH_IMAGE` to that image tag before building. At startup, each worker checks CUDA on the actual GPU and runs `torchvision` NMS on CUDA tensors before joining its queue; an incompatible image fails clearly rather than registering as ready.
 
+#### Run the Docker Hub image
+
+The separate [`compose.dockerhub.yaml`](./compose.dockerhub.yaml) file runs the application services from a published image and has no `build:` entries. First log in to Docker Hub and tag/push the image as described below. Then set `INFERENCE_IMAGE` to the full repository and tag:
+
+```bash
+export INFERENCE_IMAGE=your-dockerhub-username/tnb-inference:latest
+docker compose -f compose.dockerhub.yaml pull
+docker compose -f compose.dockerhub.yaml up
+```
+
+Replace `your-dockerhub-username` with your Docker Hub username. The image must support the host architecture; the image built on ARM64 is ARM64-only. This workflow uses the default CPU image; use the Jetson overlay above to build the Jetson CUDA worker image.
+
+The regular `compose.yaml` remains the Dockerfile-build workflow:
+
+```bash
+docker compose up --build
+```
+
+To publish that built image:
+
+```bash
+docker build -t tnb-inference:latest .
+docker login -u your-dockerhub-username
+docker tag tnb-inference:latest your-dockerhub-username/tnb-inference:latest
+docker push your-dockerhub-username/tnb-inference:latest
+```
+
 ## Development tests
 
 ```bash
